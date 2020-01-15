@@ -1,22 +1,22 @@
 package cleaner
 
 import (
+  "errors"
+  "log"
   "fmt"
   "time"
+  "github.com/nokia/danm/pkg/danmep"
   "github.com/nokia/danm/pkg/ipam"
-  danmv1 "github.com/nokia/danm/pkg/crd/apis/danm/v1"
-  danmclientset "github.com/nokia/danm/pkg/crd/client/clientset/versioned"
-  danmscheme "github.com/nokia/danm/pkg/crd/client/clientset/versioned/scheme"
-  danminformers "github.com/nokia/danm/pkg/crd/client/informers/externalversions/danm/v1"
-  danmlisters "github.com/nokia/danm/pkg/crd/client/listers/danm/v1"
+  "github.com/nokia/danm/pkg/netcontrol"
+  danmv1 "github.com/nokia/danm/crd/apis/danm/v1"
+  danmclientset "github.com/nokia/danm/crd/client/clientset/versioned"
+  danmscheme "github.com/nokia/danm/crd/client/clientset/versioned/scheme"
   corev1 "k8s.io/api/core/v1"
   meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-  "k8s.io/apimachinery/pkg/api/errors"
-  "k8s.io/apimachinery/pkg/labels"
+  k8serr "k8s.io/apimachinery/pkg/api/errors"
   "k8s.io/apimachinery/pkg/util/runtime"
   "k8s.io/apimachinery/pkg/util/wait"
   coreinformers "k8s.io/client-go/informers/core/v1"
-  "k8s.io/client-go/kubernetes"
   "k8s.io/client-go/kubernetes/scheme"
   corelisters "k8s.io/client-go/listers/core/v1"
   "k8s.io/client-go/tools/cache"
@@ -24,11 +24,11 @@ import (
 )
 
 type Cleaner struct {
-  danmClient    danmclientset.Interface
-  initialized   bool
-  podLister     corelisters.PodLister
-  podSynced     cache.InformerSynced
-  workqueue     workqueue.RateLimitingInterface
+  DanmClient    danmclientset.Interface
+  Initialized   bool
+  PodLister     corelisters.PodLister
+  PodSynced     cache.InformerSynced
+  Workqueue     workqueue.RateLimitingInterface
 }
 
 func New(
@@ -36,11 +36,11 @@ func New(
   podInformer coreinformers.PodInformer) *Cleaner {
   danmscheme.AddToScheme(scheme.Scheme)
   cleaner := &Cleaner{
-    danmClient:    danmClient,
-    initialized:   false,
-    podLister:     podInformer.Lister(),
-    podSynced:     podInformer.Informer().HasSynced,
-    workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Endpoints"),
+    DanmClient:    danmClient,
+    Initialized:   false,
+    PodLister:     podInformer.Lister(),
+    PodSynced:     podInformer.Informer().HasSynced,
+    Workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Endpoints"),
   }
   podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
     UpdateFunc: cleaner.updatePod,
@@ -54,12 +54,12 @@ func (c *Cleaner) Initialize() bool {
   timeout := 10000
   for timer := 0; timer <= timeout; timer = timer + interval {
     //This can be easily expanded if we need to add more Informers to Cleaner in the future
-    if c.podSynced() {
+    if c.PodSynced() {
       break
     }
-    time.Sleep(interval * time.Millisecond)
+    time.Sleep(time.Duration(interval) * time.Millisecond)
   }
-  c.initialized = true
+  c.Initialized = true
   return true
 }
 
@@ -75,29 +75,29 @@ func cleanupOnTick(danmClient danmclientset.Interface, podLister corelisters.Pod
   for {
     select {
     case <-timeForCleanup.C:
-      danmeps, err := danmep.FindByPodName(c.danmClient, "", "")
+      danmeps, err := danmep.FindByPodName(danmClient, "", "")
       if err != nil {
         log.Println("WARNING: Periodic cleaning failed with error:" + err.Error())
         continue
       }
-      cleanDanglingEps(danmeps, podLister)
+      cleanDanglingEps(danmClient, danmeps, podLister)
     }
   }
 }
 
-func cleanDanglingEps(danmeps []danmv1.DanmEp, podLister corelisters.PodLister) {
+func cleanDanglingEps(danmClient danmclientset.Interface, danmeps []danmv1.DanmEp, podLister corelisters.PodLister) {
   podCache := make(map[string]bool, 0)
   for _, dep := range danmeps {
     //We have already checked this Pod
     if doesPodExist, ok := podCache[dep.ObjectMeta.Namespace+dep.Spec.Pod]; ok {
       if !doesPodExist {
-        deleteInterface(dep)
+        deleteInterface(danmClient, dep)
       }
       continue
     }
     _, err := podLister.Pods(dep.ObjectMeta.Namespace).Get(dep.Spec.Pod)
-    if errors.IsNotFound(err) {
-      deleteInterface(dep)
+    if k8serr.IsNotFound(err) {
+      deleteInterface(danmClient, dep)
       podCache[dep.ObjectMeta.Namespace+dep.Spec.Pod] = false
     } else {
       podCache[dep.ObjectMeta.Namespace+dep.Spec.Pod] = true
@@ -107,10 +107,10 @@ func cleanDanglingEps(danmeps []danmv1.DanmEp, podLister corelisters.PodLister) 
 
 func (c *Cleaner) Run(threadiness int, stopCh <-chan struct{}) error {
   defer runtime.HandleCrash()
-  defer c.workqueue.ShutDown()
+  defer c.Workqueue.ShutDown()
   log.Println("INFO: starting Cleaner")
   log.Println("INFO: waiting for Cleaner to synchronize cache")
-  if ok := cache.WaitForCacheSync(stopCh, c.podSynced); !ok {
+  if ok := cache.WaitForCacheSync(stopCh, c.PodSynced); !ok {
     return errors.New("synching Cleaner's cache failed")
   }
   log.Println("INFO: Starting Cleaner event handler threads")
@@ -128,7 +128,7 @@ func (c *Cleaner) runWorker() {
 }
 
 func (c *Cleaner) processNextWorkItem() bool {
-  obj, shutdown := c.workqueue.Get()
+  obj, shutdown := c.Workqueue.Get()
   if shutdown {
     return false
   }
@@ -140,18 +140,18 @@ func (c *Cleaner) processNextWorkItem() bool {
 }
 
 func (c *Cleaner) processItemInQueue(obj interface{}) error {
-  defer c.workqueue.Done(obj)
+  defer c.Workqueue.Done(obj)
   var key string
   var ok bool
   if key, ok = obj.(string); !ok {
-    c.workqueue.Forget(obj)
+    c.Workqueue.Forget(obj)
     runtime.HandleError(fmt.Errorf("WARNING: Cannot decode work item from queue because instead string type we got %#v", obj))
     return nil
   }
   if err := c.handleKey(key); err != nil {
     return errors.New("ERROR: could not process item:" + key + " because:" + err.Error())
   }
-  c.workqueue.Forget(obj)
+  c.Workqueue.Forget(obj)
   return nil
 }
 
@@ -165,27 +165,27 @@ func (c *Cleaner) handleKey(key string) error {
   //We want to avoid possible interference, and with it exotic race conditions
   //TODO: this quite possibly needs to be more sophisticated than this :)  
   time.Sleep(1 * time.Second)
-  deps, err := danmep.FindByPodName(c.danmClient, name, ns)
+  deps, err := danmep.FindByPodName(c.DanmClient, name, ns)
   if err != nil {
     return err
   }
   //Check if the specified DanmEp (if any) actually exists in the namespace
   for _, dep := range deps {
     log.Println("INFO: Cleaner freeing IPs belonging to interface:" + dep.Spec.Iface.Name + " in Pod:" + dep.Spec.Pod)
-    c.deleteInterface(dep)
+    deleteInterface(c.DanmClient, dep)
   }
   return nil
 }
 
-func (c *Cleaner) deleteInterface(ep *danmv1.DanmEp) {
-  netInfo, err := netcontrol.GetNetworkFromEp(c.danmclient, ep)
+func deleteInterface(danmClient danmclientset.Interface, ep danmv1.DanmEp) {
+  netInfo, err := netcontrol.GetNetworkFromEp(danmClient, ep)
   if err != nil {
-    log.Println("WARNING: Danmep:" + ep.MetaData.Name + " in namespace:" + ep.MetaData.Namespace + "could not be cleaned as its network could not be GET from K8s API server:" + err.Error())
+    log.Println("WARNING: Danmep:" + ep.ObjectMeta.Name + " in namespace:" + ep.ObjectMeta.Namespace + "could not be cleaned as its network could not be GET from K8s API server:" + err.Error())
     return
   }
   //TODO: this definitely need to be expanded into a framework, where network type specific cleanup operations can be plugged-in
-  ipam.GarbageCollectIps(c.danmclient, *netInfo, ep.Spec.Iface.Address, ep.Spec.Iface.AddressIPv6)
-  c.danmclient.DanmV1().DanmEps(ep.ObjectMeta.Namespace).Delete(ep.ObjectMeta.Name, &meta_v1.DeleteOptions{})
+  ipam.GarbageCollectIps(danmClient, netInfo, ep.Spec.Iface.Address, ep.Spec.Iface.AddressIPv6)
+  danmClient.DanmV1().DanmEps(ep.ObjectMeta.Namespace).Delete(ep.ObjectMeta.Name, &meta_v1.DeleteOptions{})
 }
 
 func (c *Cleaner) updatePod(old, new interface{}) {
@@ -213,18 +213,16 @@ func (c *Cleaner) enqueuePod(obj interface{}) {
     log.Println("WARNING: Could not schedule Pod for automatic cleanup because:" + err.Error())
     return
   }
-  c.workqueue.Add(key)
+  c.Workqueue.Add(key)
 }
 
 func (c *Cleaner) delPod(obj interface{}) {
-  var object meta_v1.Object
-  var ok bool
-  if object, ok = obj.(meta_v1.Object); !ok {
+  if _, ok := obj.(meta_v1.Object); !ok {
     tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
     if !ok {
       return
     }
-    object, ok = tombstone.Obj.(meta_v1.Object)
+    _, ok = tombstone.Obj.(meta_v1.Object)
     if !ok {
       return
     }

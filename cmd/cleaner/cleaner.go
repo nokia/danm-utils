@@ -1,10 +1,12 @@
 package main
 
 import (
+  "errors"
+  "log"
   "flag"
-  "fmt"
   "os"
   "time"
+  "github.com/nokia/danm-utils/pkg/cleaner"
   kubeinformers "k8s.io/client-go/informers"
   "k8s.io/client-go/kubernetes"
   "k8s.io/client-go/kubernetes/scheme"
@@ -16,8 +18,6 @@ import (
   v1core "k8s.io/client-go/kubernetes/typed/core/v1"
   corev1 "k8s.io/api/core/v1"
   danmclientset "github.com/nokia/danm/crd/client/clientset/versioned"
-  danminformers "github.com/nokia/danm/crd/client/informers/externalversions"
-  "github.com/nokia/danm-utils/pkg/cleaner"
 )
 
 var (
@@ -30,31 +30,31 @@ func main() {
   cfg, err := clientcmd.BuildConfigFromFlags("", kubeConf)
   if err != nil {
     log.Println("ERROR: cannot build cluster config for K8s REST client because:" + err.Error())
-    return -1
+    os.Exit(1)
   }
   kubeClient, err := kubernetes.NewForConfig(cfg)
   if err != nil {
     log.Println("ERROR: cannot build K8s REST client because:" + err.Error())
-    return -1
+    os.Exit(1)
   }
   danmClient, err := danmclientset.NewForConfig(cfg)
   if err != nil {
     log.Println("ERROR: cannot build DANM REST client because:" + err.Error())
-    return -1
+    os.Exit(1)
   }
   kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
-  cleaner := cleaner.New(danmClient,
+  mrHandy := cleaner.New(danmClient,
     kubeInformerFactory.Core().V1().Pods())
   cleanStuff := func(stopCh <-chan struct{}) {
     go kubeInformerFactory.Start(stopCh)
-    if !cleaner.Initialize() {
+    if !mrHandy.Initialize() {
       log.Println("ERROR: Cleaner timed-out synching its cache, retrying!")
-      return -1
+      os.Exit(1)
     }
-    go cleaner.PeriodicCleanup(stopCh)
-    if err = cleaner.Run(10, stopCh); err != nil {
+    go cleaner.PeriodicCleanup(mrHandy.DanmClient, mrHandy.PodLister, stopCh)
+    if err = mrHandy.Run(10, stopCh); err != nil {
       log.Println("ERROR: Cleaner failed with:" + err.Error())
-      return -1
+      os.Exit(1)
     }
   }
   rl, err := resourcelock.New(resourcelock.EndpointsResourceLock,
@@ -67,7 +67,7 @@ func main() {
     })
   if err != nil {
     log.Println("ERROR: Cannot create resource lock because:" + err.Error())
-    return -1
+    os.Exit(1)
   }
   leaderelection.RunOrDie(leaderelection.LeaderElectionConfig{
     Lock:          rl,
@@ -77,7 +77,7 @@ func main() {
     Callbacks: leaderelection.LeaderCallbacks{
       OnStartedLeading: cleanStuff,
       OnStoppedLeading: func() {
-        utilruntime.HandleError(log.Println("WARNING: Cleaner cluster lost its leader"))
+        utilruntime.HandleError(errors.New("WARNING: Cleaner cluster lost its leader"))
       },
     },
   })
