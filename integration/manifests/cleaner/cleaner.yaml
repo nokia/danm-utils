@@ -21,6 +21,7 @@ rules:
   - ""
   resources:
   - events
+  - endpoints
   verbs:
   - create
   - update
@@ -66,6 +67,6 @@ spec:
     spec:
       serviceAccountName: danm-cleaner
       containers:
-        - name: danm-cleaner
-          image: cleaner
-         imagePullPolicy: IfNotPresent
+      - name: danm-cleaner
+        image: cleaner
+        imagePullPolicy: IfNotPresent

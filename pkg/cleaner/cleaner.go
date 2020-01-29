@@ -91,12 +91,14 @@ func cleanDanglingEps(danmClient danmclientset.Interface, danmeps []danmv1.DanmE
     //We have already checked this Pod
     if doesPodExist, ok := podCache[dep.ObjectMeta.Namespace+dep.Spec.Pod]; ok {
       if !doesPodExist {
+	    log.Println("INFO: Cleaner freeing IPs belonging to interface:" + dep.Spec.Iface.Name + " of Pod:" + dep.Spec.Pod)
         deleteInterface(danmClient, dep)
       }
       continue
     }
     _, err := podLister.Pods(dep.ObjectMeta.Namespace).Get(dep.Spec.Pod)
     if k8serr.IsNotFound(err) {
+	  log.Println("INFO: Cleaner freeing IPs belonging to interface:" + dep.Spec.Iface.Name + " of Pod:" + dep.Spec.Pod)
       deleteInterface(danmClient, dep)
       podCache[dep.ObjectMeta.Namespace+dep.Spec.Pod] = false
     } else {
@@ -171,7 +173,7 @@ func (c *Cleaner) handleKey(key string) error {
   }
   //Check if the specified DanmEp (if any) actually exists in the namespace
   for _, dep := range deps {
-    log.Println("INFO: Cleaner freeing IPs belonging to interface:" + dep.Spec.Iface.Name + " in Pod:" + dep.Spec.Pod)
+    log.Println("INFO: Cleaner freeing IPs belonging to interface:" + dep.Spec.Iface.Name + " of Pod:" + dep.Spec.Pod)
     deleteInterface(c.DanmClient, dep)
   }
   return nil
