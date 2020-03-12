@@ -6,7 +6,6 @@ import (
   "fmt"
   "time"
   "github.com/nokia/danm/pkg/danmep"
-  "github.com/nokia/danm/pkg/ipam"
   "github.com/nokia/danm/pkg/netcontrol"
   danmv1 "github.com/nokia/danm/crd/apis/danm/v1"
   danmclientset "github.com/nokia/danm/crd/client/clientset/versioned"
@@ -14,6 +13,7 @@ import (
   corev1 "k8s.io/api/core/v1"
   meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
   k8serr "k8s.io/apimachinery/pkg/api/errors"
+  "k8s.io/apimachinery/pkg/types"
   "k8s.io/apimachinery/pkg/util/runtime"
   "k8s.io/apimachinery/pkg/util/wait"
   coreinformers "k8s.io/client-go/informers/core/v1"
@@ -31,7 +31,7 @@ type Cleaner struct {
   Workqueue     workqueue.RateLimitingInterface
 }
 
-func New(
+func New (
   danmClient danmclientset.Interface,
   podInformer coreinformers.PodInformer) *Cleaner {
   danmscheme.AddToScheme(scheme.Scheme)
@@ -86,23 +86,25 @@ func cleanupOnTick(danmClient danmclientset.Interface, podLister corelisters.Pod
 }
 
 func cleanDanglingEps(danmClient danmclientset.Interface, danmeps []danmv1.DanmEp, podLister corelisters.PodLister) {
-  podCache := make(map[string]bool, 0)
+  podCache := make(map[types.UID]bool, 0)
   for _, dep := range danmeps {
     //We have already checked this Pod
-    if doesPodExist, ok := podCache[dep.ObjectMeta.Namespace+dep.Spec.Pod]; ok {
+    if doesPodExist, ok := podCache[dep.Spec.PodUID]; ok {
       if !doesPodExist {
-	    log.Println("INFO: Cleaner freeing IPs belonging to interface:" + dep.Spec.Iface.Name + " of Pod:" + dep.Spec.Pod)
+        log.Println("INFO: Cleaner freeing IPs belonging to interface:" + dep.Spec.Iface.Name + " of Pod:" + dep.Spec.Pod)
         deleteInterface(danmClient, dep)
       }
       continue
     }
-    _, err := podLister.Pods(dep.ObjectMeta.Namespace).Get(dep.Spec.Pod)
-    if k8serr.IsNotFound(err) {
-	  log.Println("INFO: Cleaner freeing IPs belonging to interface:" + dep.Spec.Iface.Name + " of Pod:" + dep.Spec.Pod)
+    pod, err := podLister.Pods(dep.ObjectMeta.Namespace).Get(dep.Spec.Pod)
+    //Statefulset, or non-controlled Pods can be re-instantiated with the same name
+    //A Pod is considered non-existent if it does not exist OR it exist but with a different UID
+    if k8serr.IsNotFound(err) || (err == nil && pod.ObjectMeta.UID != dep.Spec.PodUID) {
+      log.Println("INFO: Cleaner freeing IPs belonging to interface:" + dep.Spec.Iface.Name + " of Pod:" + dep.Spec.Pod)
       deleteInterface(danmClient, dep)
-      podCache[dep.ObjectMeta.Namespace+dep.Spec.Pod] = false
+      podCache[dep.Spec.PodUID] = false
     } else {
-      podCache[dep.ObjectMeta.Namespace+dep.Spec.Pod] = true
+      podCache[dep.Spec.PodUID] = true
     }
   }
 }
@@ -163,10 +165,6 @@ func (c *Cleaner) handleKey(key string) error {
     log.Println("WARNING: Dropping work item from because its key:" + key + " could not be broken up into API object identifiers due to error:" + err.Error())
     return nil
   }
-  //We give time for DANM to execute normal CNI DEL operation
-  //We want to avoid possible interference, and with it exotic race conditions
-  //TODO: this quite possibly needs to be more sophisticated than this :)  
-  time.Sleep(1 * time.Second)
   deps, err := danmep.FindByPodName(c.DanmClient, name, ns)
   if err != nil {
     return err
@@ -180,14 +178,25 @@ func (c *Cleaner) handleKey(key string) error {
 }
 
 func deleteInterface(danmClient danmclientset.Interface, ep danmv1.DanmEp) {
-  netInfo, err := netcontrol.GetNetworkFromEp(danmClient, ep)
+  //We give time for DANM to execute normal CNI operation
+  //We want to avoid possible interference, and with it exotic race conditions
+  //TODO: this quite possibly needs to be more sophisticated than this :)
+  time.Sleep(1 * time.Second)
+  _, err := danmClient.DanmV1().DanmEps(ep.ObjectMeta.Namespace).Get(ep.ObjectMeta.Name, meta_v1.GetOptions{})
+  if err != nil {
+    //Problem solved itself in the meantime
+    return
+  }
+  netInfo, err := netcontrol.GetNetworkFromEp(danmClient, &ep)
   if err != nil {
     log.Println("WARNING: Danmep:" + ep.ObjectMeta.Name + " in namespace:" + ep.ObjectMeta.Namespace + "could not be cleaned as its network could not be GET from K8s API server:" + err.Error())
     return
   }
   //TODO: this definitely need to be expanded into a framework, where network type specific cleanup operations can be plugged-in
-  ipam.GarbageCollectIps(danmClient, netInfo, ep.Spec.Iface.Address, ep.Spec.Iface.AddressIPv6)
-  danmClient.DanmV1().DanmEps(ep.ObjectMeta.Namespace).Delete(ep.ObjectMeta.Name, &meta_v1.DeleteOptions{})
+  err = danmep.DeleteDanmEp(danmClient, &ep, netInfo)
+  if err != nil {
+    log.Println("WARNING: Danmep:" + ep.ObjectMeta.Name + " in namespace:" + ep.ObjectMeta.Namespace + "could not be cleaned because of error:" + err.Error()) 
+  }
 }
 
 func (c *Cleaner) updatePod(old, new interface{}) {
