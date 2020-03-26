@@ -30,3 +30,6 @@ import:
   - tools/leaderelection/resourcelock
   - tools/record
   - util/workqueue
+- package: github.com/nokia/danm
+  version: 2705b5d3c2a19feabcb60ec30a1ea9b291858142 
+
