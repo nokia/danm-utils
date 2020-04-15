@@ -22,18 +22,18 @@ type NetPolSpec struct {
 }
 
 type NetworkPolicyIngressRule struct {
-	Ports []networking.NetworkPolicyPort `json:"ports,omitempty" protobuf:"bytes,1,rep,name=ports"`
-	From  []NetworkPolicyPeer            `json:"from,omitempty" protobuf:"bytes,2,rep,name=from"`
+  Ports []networking.NetworkPolicyPort `json:"ports,omitempty" protobuf:"bytes,1,rep,name=ports"`
+  From  []NetworkPolicyPeer            `json:"from,omitempty" protobuf:"bytes,2,rep,name=from"`
 }
 
 type NetworkPolicyEgressRule struct {
-	Ports []networking.NetworkPolicyPort `json:"ports,omitempty" protobuf:"bytes,1,rep,name=ports"`
-	To    []NetworkPolicyPeer            `json:"to,omitempty" protobuf:"bytes,2,rep,name=to"`
+  Ports []networking.NetworkPolicyPort `json:"ports,omitempty" protobuf:"bytes,1,rep,name=ports"`
+  To    []NetworkPolicyPeer            `json:"to,omitempty" protobuf:"bytes,2,rep,name=to"`
 }
 
 type NetworkPolicyPeer struct {
-	PodSelector       meta_v1.LabelSelector `json:"podSelector,omitempty" protobuf:"bytes,1,opt,name=podSelector"`
-	NamespaceSelector meta_v1.LabelSelector `json:"namespaceSelector,omitempty" protobuf:"bytes,2,opt,name=namespaceSelector"`
+  PodSelector       meta_v1.LabelSelector `json:"podSelector,omitempty" protobuf:"bytes,1,opt,name=podSelector"`
+  NamespaceSelector meta_v1.LabelSelector `json:"namespaceSelector,omitempty" protobuf:"bytes,2,opt,name=namespaceSelector"`
   NetworkSelector   NetworkSelector       `json:"networkSelector,omitempty" protobuf:"bytes,3,opt,name=networkSelector"`
 }
 
