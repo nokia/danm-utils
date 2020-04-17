@@ -1,5 +1,5 @@
 hash: 2f67bfbb19441f4b8486e776de36cfb0e96148ac4da404e3e7fcf35e79d7e7b7
-updated: 2020-03-12T13:09:16.371821852+01:00
+updated: 2020-04-17T17:26:30.73726521+02:00
 imports:
 - name: github.com/apparentlymart/go-cidr
   version: 2bd8b58cf4275aeb086ade613de226773e29e853
@@ -210,6 +210,7 @@ imports:
   version: 3ec0d5188431b312d6b3d5b6e46e022d5c0843a4
   subpackages:
   - discovery
+  - discovery/fake
   - informers
   - informers/admissionregistration
   - informers/admissionregistration/v1alpha1
@@ -314,6 +315,7 @@ imports:
   - plugin/pkg/client/auth/exec
   - rest
   - rest/watch
+  - testing
   - tools/auth
   - tools/cache
   - tools/clientcmd
@@ -339,4 +341,9 @@ imports:
   version: 91cfa479c814065e420cee7ed227db0f63a5854e
   subpackages:
   - pkg/util/proto
+- name: k8s.io/kubernetes
+  version: ddf47ac13c1a9483ea035a79cd7c10005ff21a6d
+  subpackages:
+  - pkg/apis/core
+  - pkg/apis/networking
 testImports: []
