@@ -2,8 +2,7 @@ package v1
 
 import (
   meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-  "k8s.io/apimachinery/pkg/types"
-  "k8s.io/pkg/apis/networking"
+  "k8s.io/kubernetes/pkg/apis/networking"
 )
 
 // +genclient
@@ -40,4 +39,11 @@ type NetworkPolicyPeer struct {
 type NetworkSelector struct {
   Name  string `json:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
   Type  string `json:"type,omitempty" protobuf:"bytes,2,opt,name=type"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type DanmNetworkPolicyList struct {
+  meta_v1.TypeMeta `json:",inline"`
+  meta_v1.ListMeta `json:"metadata"`
+  Items            []DanmNetworkPolicy `json:"items"`
 }
