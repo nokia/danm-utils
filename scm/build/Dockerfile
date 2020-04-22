@@ -1,24 +1,29 @@
-FROM alpine:latest
+ARG BUILDER=golang:1.13-alpine3.10
+ARG APK_EXTRA_ARGS
+FROM ${BUILDER} as base
+
+RUN apk add --no-cache --no-progress ${APK_EXTRA_ARGS} ca-certificates make git bash
+
+ENV GOOS=linux
+ENV CGO_ENABLED=0
+WORKDIR ${GOPATH}/src/github.com/nokia/danm-utils
+
+FROM base as builder
+ADD go.* ./
+RUN go mod download
+ADD cmd cmd
+ADD pkg pkg
+
+RUN go install -ldflags "-extldflags '-static'" github.com/nokia/danm-utils/cmd/cleaner
+RUN chmod 750 ${GOPATH}/bin/cleaner
+ADD . .
+ENTRYPOINT ./scm/build/build.sh
+
+FROM alpine:latest as cleaner
 MAINTAINER Levente Kale <levente.kale@nokia.com>
 
-ENV GOPATH=/usr/local/go
-ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
-ENV GO_VERSION 1.13.6
-
-COPY build.sh /build.sh
-
-RUN apk add --no-cache ca-certificates \
- && apk update --no-cache \
- && apk upgrade --no-cache \
- && apk add --no-cache make gcc musl-dev glide git bash curl tar \
- && mkdir -p ${GOPATH} \
- && mkdir -p ${GOPATH}/bin \
- && mkdir -p ${GOPATH}/src \
- && curl -fsSL -k https://dl.google.com/go/go${GO_VERSION}.src.tar.gz | tar zx --strip-components=1 -C ${GOPATH} \
- && cd ${GOPATH}/src/ \
- && ./make.bash \
- && rm -rf /var/cache/apk/* \
- && rm -rf /var/lib/apt/lists/* \
- && rm -rf /tmp/*
-
-ENTRYPOINT /build.sh
+RUN adduser -u 666 -D -H -s /sbin/nologin cleaner
+COPY --from=builder --chown=root:cleaner  /go/bin/cleaner /usr/local/bin/cleaner
+USER cleaner
+WORKDIR /
+ENTRYPOINT ["/usr/local/bin/cleaner"]

@@ -1,7 +1,9 @@
 package main
 
 import (
+  "context"
   "errors"
+  "fmt"
   "log"
   "flag"
   "os"
@@ -18,6 +20,7 @@ import (
   v1core "k8s.io/client-go/kubernetes/typed/core/v1"
   corev1 "k8s.io/api/core/v1"
   danmclientset "github.com/nokia/danm/crd/client/clientset/versioned"
+  "k8s.io/client-go/transport"
 )
 
 var (
@@ -32,6 +35,9 @@ func main() {
     log.Println("ERROR: cannot build cluster config for K8s REST client because:" + err.Error())
     os.Exit(1)
   }
+  ctx, cancel := context.WithCancel(context.Background())
+  defer cancel()
+  cfg.Wrap(transport.ContextCanceller(ctx, fmt.Errorf("the leader is shutting down")))
   kubeClient, err := kubernetes.NewForConfig(cfg)
   if err != nil {
     log.Println("ERROR: cannot build K8s REST client because:" + err.Error())
@@ -45,14 +51,14 @@ func main() {
   kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
   mrHandy := cleaner.New(danmClient,
     kubeInformerFactory.Core().V1().Pods())
-  cleanStuff := func(stopCh <-chan struct{}) {
-    go kubeInformerFactory.Start(stopCh)
+  cleanStuff := func(ctx context.Context) {
+    go kubeInformerFactory.Start(ctx.Done())
     if !mrHandy.Initialize() {
       log.Println("ERROR: Cleaner timed-out synching its cache, retrying!")
       os.Exit(1)
     }
-    go cleaner.PeriodicCleanup(mrHandy.DanmClient, mrHandy.PodLister, stopCh)
-    if err = mrHandy.Run(10, stopCh); err != nil {
+    go cleaner.PeriodicCleanup(mrHandy.DanmClient, mrHandy.PodLister, ctx.Done())
+    if err = mrHandy.Run(10, ctx.Done()); err != nil {
       log.Println("ERROR: Cleaner failed with:" + err.Error())
       os.Exit(1)
     }
@@ -61,6 +67,7 @@ func main() {
     "kube-system",
     "danm-cleaner",
     kubeClient.CoreV1(),
+    kubeClient.CoordinationV1(),
     resourcelock.ResourceLockConfig{
       Identity:      GetHostname(),
       EventRecorder: createRecorder(kubeClient, "danm-cleaner"),
@@ -69,7 +76,7 @@ func main() {
     log.Println("ERROR: Cannot create resource lock because:" + err.Error())
     os.Exit(1)
   }
-  leaderelection.RunOrDie(leaderelection.LeaderElectionConfig{
+  leaderelection.RunOrDie(ctx, leaderelection.LeaderElectionConfig{
     Lock:          rl,
     LeaseDuration: 10 * time.Second,
     RenewDeadline: 5 * time.Second,
