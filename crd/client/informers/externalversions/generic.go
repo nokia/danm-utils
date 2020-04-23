@@ -52,7 +52,7 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=netpol, Version=v1
+	// Group=netpol.k8s.io, Version=v1
 	case v1.SchemeGroupVersion.WithResource("danmnetworkpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Netpol().V1().DanmNetworkPolicies().Informer()}, nil
 

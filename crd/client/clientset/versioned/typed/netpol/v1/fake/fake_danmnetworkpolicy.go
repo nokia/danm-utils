@@ -19,6 +19,8 @@ limitations under the License.
 package fake
 
 import (
+	"context"
+
 	netpolv1 "github.com/nokia/danm-utils/crd/api/netpol/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -34,12 +36,12 @@ type FakeDanmNetworkPolicies struct {
 	ns   string
 }
 
-var danmnetworkpoliciesResource = schema.GroupVersionResource{Group: "netpol", Version: "v1", Resource: "danmnetworkpolicies"}
+var danmnetworkpoliciesResource = schema.GroupVersionResource{Group: "netpol.k8s.io", Version: "v1", Resource: "danmnetworkpolicies"}
 
-var danmnetworkpoliciesKind = schema.GroupVersionKind{Group: "netpol", Version: "v1", Kind: "DanmNetworkPolicy"}
+var danmnetworkpoliciesKind = schema.GroupVersionKind{Group: "netpol.k8s.io", Version: "v1", Kind: "DanmNetworkPolicy"}
 
 // Get takes name of the danmNetworkPolicy, and returns the corresponding danmNetworkPolicy object, and an error if there is any.
-func (c *FakeDanmNetworkPolicies) Get(name string, options v1.GetOptions) (result *netpolv1.DanmNetworkPolicy, err error) {
+func (c *FakeDanmNetworkPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *netpolv1.DanmNetworkPolicy, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewGetAction(danmnetworkpoliciesResource, c.ns, name), &netpolv1.DanmNetworkPolicy{})
 
@@ -50,7 +52,7 @@ func (c *FakeDanmNetworkPolicies) Get(name string, options v1.GetOptions) (resul
 }
 
 // List takes label and field selectors, and returns the list of DanmNetworkPolicies that match those selectors.
-func (c *FakeDanmNetworkPolicies) List(opts v1.ListOptions) (result *netpolv1.DanmNetworkPolicyList, err error) {
+func (c *FakeDanmNetworkPolicies) List(ctx context.Context, opts v1.ListOptions) (result *netpolv1.DanmNetworkPolicyList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewListAction(danmnetworkpoliciesResource, danmnetworkpoliciesKind, c.ns, opts), &netpolv1.DanmNetworkPolicyList{})
 
@@ -72,14 +74,14 @@ func (c *FakeDanmNetworkPolicies) List(opts v1.ListOptions) (result *netpolv1.Da
 }
 
 // Watch returns a watch.Interface that watches the requested danmNetworkPolicies.
-func (c *FakeDanmNetworkPolicies) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeDanmNetworkPolicies) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(danmnetworkpoliciesResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a danmNetworkPolicy and creates it.  Returns the server's representation of the danmNetworkPolicy, and an error, if there is any.
-func (c *FakeDanmNetworkPolicies) Create(danmNetworkPolicy *netpolv1.DanmNetworkPolicy) (result *netpolv1.DanmNetworkPolicy, err error) {
+func (c *FakeDanmNetworkPolicies) Create(ctx context.Context, danmNetworkPolicy *netpolv1.DanmNetworkPolicy, opts v1.CreateOptions) (result *netpolv1.DanmNetworkPolicy, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewCreateAction(danmnetworkpoliciesResource, c.ns, danmNetworkPolicy), &netpolv1.DanmNetworkPolicy{})
 
@@ -90,7 +92,7 @@ func (c *FakeDanmNetworkPolicies) Create(danmNetworkPolicy *netpolv1.DanmNetwork
 }
 
 // Update takes the representation of a danmNetworkPolicy and updates it. Returns the server's representation of the danmNetworkPolicy, and an error, if there is any.
-func (c *FakeDanmNetworkPolicies) Update(danmNetworkPolicy *netpolv1.DanmNetworkPolicy) (result *netpolv1.DanmNetworkPolicy, err error) {
+func (c *FakeDanmNetworkPolicies) Update(ctx context.Context, danmNetworkPolicy *netpolv1.DanmNetworkPolicy, opts v1.UpdateOptions) (result *netpolv1.DanmNetworkPolicy, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateAction(danmnetworkpoliciesResource, c.ns, danmNetworkPolicy), &netpolv1.DanmNetworkPolicy{})
 
@@ -101,7 +103,7 @@ func (c *FakeDanmNetworkPolicies) Update(danmNetworkPolicy *netpolv1.DanmNetwork
 }
 
 // Delete takes name of the danmNetworkPolicy and deletes it. Returns an error if one occurs.
-func (c *FakeDanmNetworkPolicies) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakeDanmNetworkPolicies) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewDeleteAction(danmnetworkpoliciesResource, c.ns, name), &netpolv1.DanmNetworkPolicy{})
 
@@ -109,15 +111,15 @@ func (c *FakeDanmNetworkPolicies) Delete(name string, options *v1.DeleteOptions)
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeDanmNetworkPolicies) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(danmnetworkpoliciesResource, c.ns, listOptions)
+func (c *FakeDanmNetworkPolicies) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewDeleteCollectionAction(danmnetworkpoliciesResource, c.ns, listOpts)
 
 	_, err := c.Fake.Invokes(action, &netpolv1.DanmNetworkPolicyList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched danmNetworkPolicy.
-func (c *FakeDanmNetworkPolicies) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *netpolv1.DanmNetworkPolicy, err error) {
+func (c *FakeDanmNetworkPolicies) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *netpolv1.DanmNetworkPolicy, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewPatchSubresourceAction(danmnetworkpoliciesResource, c.ns, name, pt, data, subresources...), &netpolv1.DanmNetworkPolicy{})
 
