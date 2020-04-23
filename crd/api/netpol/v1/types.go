@@ -1,21 +1,28 @@
 package v1
 
 import (
-  meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+  metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
   "k8s.io/kubernetes/pkg/apis/networking"
 )
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type DanmNetworkPolicy struct {
-  meta_v1.TypeMeta   `json:",inline"`
-  meta_v1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-  Spec NetPolSpec    `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+  metav1.TypeMeta   `json:",inline"`
+  metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+  Spec NetPolSpec   `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type DanmNetworkPolicyList struct {
+  metav1.TypeMeta `json:",inline"`
+  metav1.ListMeta `json:"metadata"`
+  Items           []DanmNetworkPolicy `json:"items"`
 }
 
 type NetPolSpec struct {
-  PodSelector meta_v1.LabelSelector    `json:"podSelector" protobuf:"bytes,1,opt,name=podSelector"`
-  Egress      NetworkPolicyEgressRule  `json:"ingress,omitempty" protobuf:"bytes,2,rep,name=ingress"`
+  PodSelector metav1.LabelSelector    `json:"podSelector" protobuf:"bytes,1,opt,name=podSelector"`
+  Egress      NetworkPolicyEgressRule `json:"ingress,omitempty" protobuf:"bytes,2,rep,name=ingress"`
   Ingress     NetworkPolicyIngressRule `json:"egress,omitempty" protobuf:"bytes,3,rep,name=egress"`
   PolicyTypes []networking.PolicyType  `json:"policyTypes,omitempty" protobuf:"bytes,4,rep,name=policyTypes"`
 }
@@ -31,19 +38,12 @@ type NetworkPolicyEgressRule struct {
 }
 
 type NetworkPolicyPeer struct {
-  PodSelector       meta_v1.LabelSelector `json:"podSelector,omitempty" protobuf:"bytes,1,opt,name=podSelector"`
-  NamespaceSelector meta_v1.LabelSelector `json:"namespaceSelector,omitempty" protobuf:"bytes,2,opt,name=namespaceSelector"`
-  NetworkSelector   NetworkSelector       `json:"networkSelector,omitempty" protobuf:"bytes,3,opt,name=networkSelector"`
+  PodSelector       metav1.LabelSelector `json:"podSelector,omitempty" protobuf:"bytes,1,opt,name=podSelector"`
+  NamespaceSelector metav1.LabelSelector `json:"namespaceSelector,omitempty" protobuf:"bytes,2,opt,name=namespaceSelector"`
+  NetworkSelector   NetworkSelector      `json:"networkSelector,omitempty" protobuf:"bytes,3,opt,name=networkSelector"`
 }
 
 type NetworkSelector struct {
   Name  string `json:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
   Type  string `json:"type,omitempty" protobuf:"bytes,2,opt,name=type"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type DanmNetworkPolicyList struct {
-  meta_v1.TypeMeta `json:",inline"`
-  meta_v1.ListMeta `json:"metadata"`
-  Items            []DanmNetworkPolicy `json:"items"`
 }

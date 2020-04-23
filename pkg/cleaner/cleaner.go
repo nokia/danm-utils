@@ -1,6 +1,7 @@
 package cleaner
 
 import (
+  "context"
   "errors"
   "log"
   "fmt"
@@ -182,7 +183,7 @@ func deleteInterface(danmClient danmclientset.Interface, ep danmv1.DanmEp) {
   //We want to avoid possible interference, and with it exotic race conditions
   //TODO: this quite possibly needs to be more sophisticated than this :)
   time.Sleep(1 * time.Second)
-  _, err := danmClient.DanmV1().DanmEps(ep.ObjectMeta.Namespace).Get(ep.ObjectMeta.Name, meta_v1.GetOptions{})
+  _, err := danmClient.DanmV1().DanmEps(ep.ObjectMeta.Namespace).Get(context.TODO(), ep.ObjectMeta.Name, meta_v1.GetOptions{})
   if err != nil {
     //Problem solved itself in the meantime
     return

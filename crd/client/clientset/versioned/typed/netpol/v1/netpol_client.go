@@ -21,7 +21,6 @@ package v1
 import (
 	v1 "github.com/nokia/danm-utils/crd/api/netpol/v1"
 	"github.com/nokia/danm-utils/crd/client/clientset/versioned/scheme"
-	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -30,7 +29,7 @@ type NetpolV1Interface interface {
 	DanmNetworkPoliciesGetter
 }
 
-// NetpolV1Client is used to interact with features provided by the netpol group.
+// NetpolV1Client is used to interact with features provided by the netpol.k8s.io group.
 type NetpolV1Client struct {
 	restClient rest.Interface
 }
@@ -71,7 +70,7 @@ func setConfigDefaults(config *rest.Config) error {
 	gv := v1.SchemeGroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
+	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
 
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()

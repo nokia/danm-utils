@@ -1,6 +1,6 @@
 #!/bin/sh -ex
 export GOOS=linux
+export CGO_ENABLED=0
 cd $GOPATH/src/github.com/nokia/danm-utils
-glide install --strip-vendor
-go get -d github.com/vishvananda/netlink
-go install github.com/nokia/danm-utils/cmd/cleaner
+go mod download
+go install -ldflags "-extldflags '-static'" github.com/nokia/danm-utils/cmd/cleaner

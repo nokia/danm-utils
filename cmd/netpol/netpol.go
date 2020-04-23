@@ -38,7 +38,7 @@ func main() {
     os.Exit(-1)
   }
   stopCh := make(chan struct{})
-  netPolicer, err := polctrl.NewPolicer(config, &stopCh)
+  netPolicer, err := polctrl.NewNetPolControl(config, &stopCh)
   if err != nil {
     log.Println("ERROR: Creation of Network Policy Controller failed with error:" + err.Error() + " , exiting")
     os.Exit(-1)

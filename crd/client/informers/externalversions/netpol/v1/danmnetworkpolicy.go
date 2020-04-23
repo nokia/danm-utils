@@ -19,6 +19,7 @@ limitations under the License.
 package v1
 
 import (
+	"context"
 	time "time"
 
 	netpolv1 "github.com/nokia/danm-utils/crd/api/netpol/v1"
@@ -61,13 +62,13 @@ func NewFilteredDanmNetworkPolicyInformer(client versioned.Interface, namespace 
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.NetpolV1().DanmNetworkPolicies(namespace).List(options)
+				return client.NetpolV1().DanmNetworkPolicies(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.NetpolV1().DanmNetworkPolicies(namespace).Watch(options)
+				return client.NetpolV1().DanmNetworkPolicies(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&netpolv1.DanmNetworkPolicy{},

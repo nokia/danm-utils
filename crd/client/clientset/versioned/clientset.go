@@ -19,6 +19,8 @@ limitations under the License.
 package versioned
 
 import (
+	"fmt"
+
 	netpolv1 "github.com/nokia/danm-utils/crd/client/clientset/versioned/typed/netpol/v1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
@@ -28,8 +30,6 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	NetpolV1() netpolv1.NetpolV1Interface
-	// Deprecated: please explicitly pick a version if possible.
-	Netpol() netpolv1.NetpolV1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -44,12 +44,6 @@ func (c *Clientset) NetpolV1() netpolv1.NetpolV1Interface {
 	return c.netpolV1
 }
 
-// Deprecated: Netpol retrieves the default version of NetpolClient.
-// Please explicitly pick a version.
-func (c *Clientset) Netpol() netpolv1.NetpolV1Interface {
-	return c.netpolV1
-}
-
 // Discovery retrieves the DiscoveryClient
 func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 	if c == nil {
@@ -59,9 +53,14 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 }
 
 // NewForConfig creates a new Clientset for the given config.
+// If config's RateLimiter is not set and QPS and Burst are acceptable,
+// NewForConfig will generate a rate-limiter in configShallowCopy.
 func NewForConfig(c *rest.Config) (*Clientset, error) {
 	configShallowCopy := *c
 	if configShallowCopy.RateLimiter == nil && configShallowCopy.QPS > 0 {
+		if configShallowCopy.Burst <= 0 {
+			return nil, fmt.Errorf("burst is required to be greater than 0 when RateLimiter is not set and QPS is set to greater than 0")
+		}
 		configShallowCopy.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(configShallowCopy.QPS, configShallowCopy.Burst)
 	}
 	var cs Clientset

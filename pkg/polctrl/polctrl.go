@@ -1,6 +1,7 @@
 package polctrl
 
 import (
+  "context"
   "errors"
   "io"
   "log"
@@ -36,7 +37,7 @@ func NewNetPolControl(cfg *rest.Config, stopChan  *chan struct{}) (*NetPolContro
   }
   for i := 0; i < MaxRetryCount; i++ {
     log.Println("INFO: Trying to discover DanmNetworkPolicy API in the cluster...")
-    _, err = polClient.NetpolV1().DanmNetworkPolicies("").List(meta_v1.ListOptions{})
+    _, err = polClient.NetpolV1().DanmNetworkPolicies("").List(context.TODO(), meta_v1.ListOptions{})
     if err != nil {
       log.Println("INFO: DanmNetworkPolicy discovery query failed with error:" + err.Error())
       time.Sleep(RetryInterval * time.Millisecond)
