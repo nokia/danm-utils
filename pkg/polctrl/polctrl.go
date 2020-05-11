@@ -9,10 +9,11 @@ import (
   "time"
   polclientset "github.com/nokia/danm-utils/crd/client/clientset/versioned"
   polinformers "github.com/nokia/danm-utils/crd/client/informers/externalversions"
-  meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+  "github.com/nokia/danm-utils/pkg/polset"
+  corev1 "k8s.io/api/core/v1"
+  metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
   apierrors "k8s.io/apimachinery/pkg/api/errors"
   kubeinformers "k8s.io/client-go/informers"
-//  coreinformers "k8s.io/client-go/informers/core/v1"
   "k8s.io/client-go/rest"
   "k8s.io/client-go/kubernetes"
   "k8s.io/client-go/tools/cache"
@@ -21,12 +22,18 @@ import (
 const(
   MaxRetryCount = 5
   RetryInterval = 100
+  NodeNameEnv = "NODE_NAME"
+)
+
+var (
+  ControllerNode = os.Getenv(NodeNameEnv)
 )
 
 type NetPolControl struct {
   PolicyController cache.SharedIndexInformer
-  PodController cache.SharedIndexInformer
-  StopChan *chan struct{}
+  PodController    cache.SharedIndexInformer
+  PolicyClient     polclientset.Interface
+  StopChan         *chan struct{}
 }
 
 func NewNetPolControl(cfg *rest.Config, stopChan  *chan struct{}) (*NetPolControl,error) {
@@ -35,15 +42,16 @@ func NewNetPolControl(cfg *rest.Config, stopChan  *chan struct{}) (*NetPolContro
   if err != nil {
     return nil, err
   }
+  polControl.PolicyClient = polClient
   for i := 0; i < MaxRetryCount; i++ {
     log.Println("INFO: Trying to discover DanmNetworkPolicy API in the cluster...")
-    _, err = polClient.NetpolV1().DanmNetworkPolicies("").List(context.TODO(), meta_v1.ListOptions{})
+    _, err = polControl.PolicyClient.NetpolV1().DanmNetworkPolicies("").List(context.TODO(), metav1.ListOptions{})
     if err != nil {
       log.Println("INFO: DanmNetworkPolicy discovery query failed with error:" + err.Error())
       time.Sleep(RetryInterval * time.Millisecond)
     } else {
       log.Println("INFO: DanmNetworkPolicy API seems to be installed in the cluster!")
-      polControl.createPolicyController(polClient)
+      polControl.createPolicyController()
       break
     }
   }
@@ -73,33 +81,47 @@ func (netpolController *NetPolControl) WatchErrorHandler(r *cache.Reflector, err
   os.Exit(0)
 }
 
-//TODO: implement event handlers
-func AddNetPol(netpol interface{}) {}
-func UpdateNetPol(oldNetpol, newNetpol interface{}) {}
-func DeleteNetPol(netpol interface{}) {}
-func AddPod(pod interface{}) {}
-func UpdatePod(oldPod, newPod interface{}) {}
-
-func (netpolController *NetPolControl) createPolicyController(polclient polclientset.Interface) {
-  netpolInformerFactory := polinformers.NewSharedInformerFactory(polclient, time.Second*30)
+func (netpolCtrl *NetPolControl) createPolicyController() {
+  netpolInformerFactory := polinformers.NewSharedInformerFactory(netpolCtrl.PolicyClient, time.Second*30)
   polController := netpolInformerFactory.Netpol().V1().DanmNetworkPolicies().Informer()
   polController.AddEventHandler(cache.ResourceEventHandlerFuncs{
       AddFunc: AddNetPol,
       UpdateFunc: UpdateNetPol,
       DeleteFunc: DeleteNetPol,
   })
-  polController.SetWatchErrorHandler(netpolController.WatchErrorHandler)
-  netpolController.PolicyController = polController
+  netpolCtrl.PolicyController.SetWatchErrorHandler(netpolCtrl.WatchErrorHandler)
+  netpolCtrl.PolicyController = polController
 }
 
-func (netpolController *NetPolControl) createPodController(cfg *rest.Config) {
+func (netpolCtrl *NetPolControl) createPodController(cfg *rest.Config) {
   kubeClient, _ := kubernetes.NewForConfig(cfg)
   kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
   podController := kubeInformerFactory.Core().V1().Pods().Informer()
   podController.AddEventHandler(cache.ResourceEventHandlerFuncs{
-      AddFunc: AddPod,
+      AddFunc: netpolCtrl.AddPod,
       UpdateFunc: UpdatePod,
   })
-  podController.SetWatchErrorHandler(netpolController.WatchErrorHandler)
-  netpolController.PodController = podController
+  netpolCtrl.PodController.SetWatchErrorHandler(netpolCtrl.WatchErrorHandler)
+  netpolCtrl.PodController = podController
 }
+
+//TODO: implement event handlers
+func AddNetPol(netpol interface{}) {}
+func UpdateNetPol(oldNetpol, newNetpol interface{}) {}
+func DeleteNetPol(netpol interface{}) {}
+
+func (netpolCtrl *NetPolControl) AddPod(pod interface{}) {
+  podObj := pod.(*corev1.Pod)
+  if podObj.Spec.NodeName != ControllerNode {
+    return
+  }
+  policySet  := polset.NewPolicySet(netpolCtrl.PolicyClient, podObj.ObjectMeta.Namespace)
+  applicablePols := policySet.FilterApplicablePolicies(podObj)
+  //By K8s documentation a Pod is only considered isolated if there is any network policy selecting it
+  if len(applicablePols) == 0 {
+    return
+  }
+  //TODO: do stuff when there are NPs which need to be applied
+}
+
+func UpdatePod(oldPod, newPod interface{}) {}
