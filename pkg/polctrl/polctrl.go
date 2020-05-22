@@ -7,9 +7,13 @@ import (
   "log"
   "os"
   "time"
+  danmclientset "github.com/nokia/danm/crd/client/clientset/versioned"
   polclientset "github.com/nokia/danm-utils/crd/client/clientset/versioned"
   polinformers "github.com/nokia/danm-utils/crd/client/informers/externalversions"
+  "github.com/nokia/danm-utils/pkg/depset"
+  "github.com/nokia/danm-utils/pkg/netruleset"
   "github.com/nokia/danm-utils/pkg/polset"
+  "github.com/nokia/danm-utils/pkg/provisioner/iptables"
   corev1 "k8s.io/api/core/v1"
   metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
   apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,6 +37,7 @@ type NetPolControl struct {
   PolicyController cache.SharedIndexInformer
   PodController    cache.SharedIndexInformer
   PolicyClient     polclientset.Interface
+  DanmClient       danmclientset.Interface
   StopChan         *chan struct{}
 }
 
@@ -42,7 +47,12 @@ func NewNetPolControl(cfg *rest.Config, stopChan  *chan struct{}) (*NetPolContro
   if err != nil {
     return nil, err
   }
+  danmClient, err := danmclientset.NewForConfig(cfg)
+  if err != nil {
+    return nil, err
+  }
   polControl.PolicyClient = polClient
+  polControl.DanmClient = danmClient
   for i := 0; i < MaxRetryCount; i++ {
     log.Println("INFO: Trying to discover DanmNetworkPolicy API in the cluster...")
     _, err = polControl.PolicyClient.NetpolV1().DanmNetworkPolicies("").List(context.TODO(), metav1.ListOptions{})
@@ -121,7 +131,15 @@ func (netpolCtrl *NetPolControl) AddPod(pod interface{}) {
   if len(applicablePols) == 0 {
     return
   }
-  //TODO: do stuff when there are NPs which need to be applied
+  depSet := depset.NewDanmEpSet(netpolCtrl.DanmClient, podObj.ObjectMeta.Namespace)
+  netRuleSet := netruleset.NewNetRuleSet(applicablePols, depSet.DanmEps, podObj.ObjectMeta.Namespace)
+  //TODOD: make this configurable once we have multiple executors to choose from
+  ruleProvisioner := iptables.NewIptablesProvisioner()
+  err := ruleProvisioner.AddRulesToPod(netRuleSet, podObj)
+  if err != nil {
+    log.Println("ERROR: DanmNetworkPolicy provisioning failed for POD:" + podObj.ObjectMeta.Name + " in namespace:" +
+      podObj.ObjectMeta.Name + " with error:" + err.Error())
+  }
 }
 
 func UpdatePod(oldPod, newPod interface{}) {}
