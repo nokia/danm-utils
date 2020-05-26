@@ -132,7 +132,7 @@ func (netpolCtrl *NetPolControl) AddPod(pod interface{}) {
     return
   }
   depSet := depset.NewDanmEpSet(netpolCtrl.DanmClient, podObj.ObjectMeta.Namespace)
-  netRuleSet := netruleset.NewNetRuleSet(applicablePols, depSet.DanmEps, podObj.ObjectMeta.Namespace)
+  netRuleSet := netruleset.NewNetRuleSet(applicablePols, *depSet.DanmEps, podObj.ObjectMeta.Namespace)
   //TODOD: make this configurable once we have multiple executors to choose from
   ruleProvisioner := iptables.NewIptablesProvisioner()
   err := ruleProvisioner.AddRulesToPod(netRuleSet, podObj)

@@ -1,7 +1,6 @@
 package poltypes
 
 import (
-  "net"
   danmv1 "github.com/nokia/danm/crd/apis/danm/v1"
   corev1 "k8s.io/api/core/v1"
   "k8s.io/apimachinery/pkg/types"
@@ -33,9 +32,9 @@ type NetRuleChain struct {
 }
 
 type NetRule struct {
-  SourceIp   *net.IPNet
-  SourcePort int
-  DestIp     *net.IPNet
-  DestPort   int
+  SourceIp   string
+  SourcePort string
+  DestIp     string
+  DestPort   string
   Protocol   string
 }
