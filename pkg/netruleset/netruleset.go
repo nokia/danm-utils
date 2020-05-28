@@ -18,8 +18,8 @@ const (
 
 type RuleParser func(address string, ports []networking.NetworkPolicyPort) []poltypes.NetRule
 
-func NewNetRuleSet(polSet []polv1.DanmNetworkPolicy, depSet poltypes.DanmEpBuckets, namespace string) *poltypes.NetRuleSet {
-  ruleSet := poltypes.NetRuleSet{}
+func NewNetRuleSet(polSet []polv1.DanmNetworkPolicy, depSet poltypes.DanmEpBuckets, netns string) *poltypes.NetRuleSet {
+  ruleSet := poltypes.NetRuleSet{Netns: netns}
   ruleSet.IngressV4Chain.Name = IngressV4ChainName
   ruleSet.IngressV6Chain.Name = IngressV6ChainName
   ruleSet.EgressV4Chain.Name = EgressV4ChainName
