@@ -131,15 +131,16 @@ func (netpolCtrl *NetPolControl) AddPod(pod interface{}) {
   if len(applicablePols) == 0 {
     return
   }
-  depSet := depset.NewDanmEpSet(netpolCtrl.DanmClient, podObj.ObjectMeta.Namespace)
-  netRuleSet := netruleset.NewNetRuleSet(applicablePols, *depSet.DanmEps, podObj.ObjectMeta.Namespace)
+  depSet := depset.NewDanmEpSet(netpolCtrl.DanmClient, podObj)
+  if len(depSet.PodEps) == 0 {
+    log.Println("ERROR: DanmNetworkPolicy provisioning is impossible for Pod:" + podObj.ObjectMeta.Name + " in namespace:" +
+      podObj.ObjectMeta.Name + " becuase its networking is not managed by DANM!")  
+  }
+  //Kubernetes doesn't remember the netns of the Pod, but we do. We need to read it from one of the DanmEps belonging to the Pod
+  netRuleSet := netruleset.NewNetRuleSet(applicablePols, *depSet.DanmEps, depSet.PodEps[0].Spec.Netns)
   //TODOD: make this configurable once we have multiple executors to choose from
   ruleProvisioner := iptables.NewIptablesProvisioner()
-  err := ruleProvisioner.AddRulesToPod(netRuleSet, podObj)
-  if err != nil {
-    log.Println("ERROR: DanmNetworkPolicy provisioning failed for POD:" + podObj.ObjectMeta.Name + " in namespace:" +
-      podObj.ObjectMeta.Name + " with error:" + err.Error())
-  }
+  go ruleProvisioner.AddRulesToNewPod(netRuleSet, podObj)
 }
 
 func UpdatePod(oldPod, newPod interface{}) {}
