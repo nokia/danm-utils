@@ -99,7 +99,7 @@ func (netpolCtrl *NetPolControl) createPolicyController() {
       UpdateFunc: UpdateNetPol,
       DeleteFunc: DeleteNetPol,
   })
-  netpolCtrl.PolicyController.SetWatchErrorHandler(netpolCtrl.WatchErrorHandler)
+  polController.SetWatchErrorHandler(netpolCtrl.WatchErrorHandler)
   netpolCtrl.PolicyController = polController
 }
 
@@ -111,7 +111,7 @@ func (netpolCtrl *NetPolControl) createPodController(cfg *rest.Config) {
       AddFunc: netpolCtrl.AddPod,
       UpdateFunc: UpdatePod,
   })
-  netpolCtrl.PodController.SetWatchErrorHandler(netpolCtrl.WatchErrorHandler)
+  podController.SetWatchErrorHandler(netpolCtrl.WatchErrorHandler)
   netpolCtrl.PodController = podController
 }
 
