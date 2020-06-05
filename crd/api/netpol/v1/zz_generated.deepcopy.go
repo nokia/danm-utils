@@ -89,8 +89,20 @@ func (in *DanmNetworkPolicyList) DeepCopyObject() runtime.Object {
 func (in *NetPolSpec) DeepCopyInto(out *NetPolSpec) {
 	*out = *in
 	in.PodSelector.DeepCopyInto(&out.PodSelector)
-	in.Egress.DeepCopyInto(&out.Egress)
-	in.Ingress.DeepCopyInto(&out.Ingress)
+	if in.Ingress != nil {
+		in, out := &in.Ingress, &out.Ingress
+		*out = make([]NetworkPolicyIngressRule, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+	if in.Egress != nil {
+		in, out := &in.Egress, &out.Egress
+		*out = make([]NetworkPolicyEgressRule, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.PolicyTypes != nil {
 		in, out := &in.PolicyTypes, &out.PolicyTypes
 		*out = make([]networking.PolicyType, len(*in))

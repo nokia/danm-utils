@@ -74,6 +74,7 @@ spec:
     spec:
       serviceAccountName: policer
       hostNetwork: true
+      hostPID: true
       dnsPolicy: ClusterFirst
       containers:
         - name: policer
@@ -83,6 +84,13 @@ spec:
               add:
                 - NET_ADMIN
                 - NET_RAW
+                - SYS_ADMIN
+          env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
       tolerations:
        - effect: NoSchedule
          operator: Exists

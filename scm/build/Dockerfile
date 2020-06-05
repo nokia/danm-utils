@@ -37,7 +37,8 @@ RUN adduser -u ${UID} -D -H -s /sbin/nologin ${USERNAME}
 WORKDIR /
 USER ${USER}
 COPY --from=builder /go/bin/policer /usr/local/bin/policer
-RUN apk add --no-cache --virtual .tools libcap  \
- && setcap cap_net_raw,cap_net_admin=eip /usr/local/bin/policer \
+RUN apk add --no-cache iptables ip6tables
+RUN apk add --no-cache --virtual .tools libcap \
+ && setcap cap_net_raw,cap_net_admin,cap_sys_admin=eip /usr/local/bin/policer \
  && apk del .tools
 ENTRYPOINT ["/usr/local/bin/policer"]

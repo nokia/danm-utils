@@ -28,6 +28,29 @@ var (
       poltypes.NetRule{Operation: poltypes.IptablesReject,},
     },
   }
+  JumpToV4IngressRule = poltypes.NetRuleChain {
+    Name: string(k8stables.ChainInput), Rules: []poltypes.NetRule {
+      poltypes.NetRule{Operation: poltypes.IngressV4ChainName,},
+    },
+  }
+  JumpToV4EgressRule = poltypes.NetRuleChain {
+    Name: string(k8stables.ChainOutput), Rules: []poltypes.NetRule {
+      poltypes.NetRule{Operation: poltypes.EgressV4ChainName,},
+    },
+  }
+  JumpToV6IngressRule = poltypes.NetRuleChain {
+    Name: string(k8stables.ChainInput), Rules: []poltypes.NetRule {
+      poltypes.NetRule{Operation: poltypes.IngressV6ChainName,},
+    },
+  }
+  JumpToV6EgressRule = poltypes.NetRuleChain {
+    Name: string(k8stables.ChainOutput), Rules: []poltypes.NetRule {
+      poltypes.NetRule{Operation: poltypes.EgressV6ChainName,},
+    },
+  }
+  DefaultReturnRule = poltypes.NetRule {
+    Operation: poltypes.IptablesReturn,
+  }
 )
 
 type IptablesProvisioner struct {
@@ -49,17 +72,27 @@ func (iptabProv *IptablesProvisioner) AddRulesToNewPod(ruleSet *poltypes.NetRule
   defer runtime.UnlockOSThread()
   origns, err := ns.GetCurrentNS()
   if err != nil {
+    log.Println("Failed to get the current NS for Pod:" + pod.ObjectMeta.Name +
+      " in ns:" + pod.ObjectMeta.Namespace + "because:" + err.Error())
     return
   }
   hns, err := ns.GetNS(ruleSet.Netns)
   if err != nil {
+    log.Println("Failed to get into Pod's:" + pod.ObjectMeta.Name +" in ns:" + pod.ObjectMeta.Namespace +
+      " netns:" + ruleSet.Netns + " cause of error:" + err.Error())
     return
   }
   defer func() {
     hns.Close()
     origns.Set()
   }()
-  err = ensureChains(iptabProv, ruleSet)
+  err = hns.Set()
+  if err != nil {
+    log.Println("failed to enter network namespace:" + ruleSet.Netns + " of Pod:" + pod.ObjectMeta.Name +
+      " in ns:" + pod.ObjectMeta.Namespace + "because of error:"+ err.Error())
+    return
+  }
+  err = ensureChains(iptabProv, ruleSet, pod)
   if err != nil {
     log.Println("required filter chains could not be created for Pod:" + pod.ObjectMeta.Name +
       " in ns:" + pod.ObjectMeta.Namespace + " because of error:" + err.Error())
@@ -69,26 +102,28 @@ func (iptabProv *IptablesProvisioner) AddRulesToNewPod(ruleSet *poltypes.NetRule
   provisionDefaultRules(iptabProv, pod)
 }
 
-func ensureChains(iptablesProv *IptablesProvisioner, ruleSet *poltypes.NetRuleSet) error {
-  err := ensureChain(ruleSet.IngressV4Chain, iptablesProv.V4Provisioner)
+func ensureChains(iptablesProv *IptablesProvisioner, ruleSet *poltypes.NetRuleSet, pod *corev1.Pod) error {
+  err := ensureChain(ruleSet.IngressV4Chain, JumpToV4IngressRule, iptablesProv.V4Provisioner, pod)
   if err != nil {
     return err
   }
-  err = ensureChain(ruleSet.IngressV6Chain, iptablesProv.V6Provisioner)
+  err = ensureChain(ruleSet.IngressV6Chain, JumpToV6IngressRule, iptablesProv.V6Provisioner, pod)
   if err != nil {
     return err
   }
-  err = ensureChain(ruleSet.EgressV4Chain, iptablesProv.V4Provisioner)
+  err = ensureChain(ruleSet.EgressV4Chain, JumpToV4EgressRule, iptablesProv.V4Provisioner, pod)
   if err != nil {
     return err
   }
-  return ensureChain(ruleSet.EgressV6Chain, iptablesProv.V6Provisioner)
+  return ensureChain(ruleSet.EgressV6Chain, JumpToV6EgressRule, iptablesProv.V6Provisioner, pod)
 }
 
-func ensureChain(chain poltypes.NetRuleChain, provisioner k8stables.Interface) error {
+func ensureChain(chain, jumpRule poltypes.NetRuleChain, provisioner k8stables.Interface, pod *corev1.Pod) error {
   var err error
   if len(chain.Rules) > 0 {
     _, err = provisioner.EnsureChain(k8stables.TableFilter, k8stables.Chain(chain.Name))
+    provisioner.FlushChain(k8stables.TableFilter, k8stables.Chain(chain.Name))
+    provisionRulesIntoChain(provisioner, jumpRule, pod)
   }
   return err
 }
@@ -104,14 +139,26 @@ func provisionDefaultRules(iptablesProv *IptablesProvisioner, pod *corev1.Pod) {
   provisionRulesIntoChain(iptablesProv.V4Provisioner, DefaultInputRules, pod)
   provisionRulesIntoChain(iptablesProv.V4Provisioner, DefaultOutputRules, pod)
   provisionRulesIntoChain(iptablesProv.V4Provisioner, DefaultForwardRules, pod)
+  provisionRulesIntoChain(iptablesProv.V6Provisioner, DefaultInputRules, pod)
+  provisionRulesIntoChain(iptablesProv.V6Provisioner, DefaultOutputRules, pod)
+  provisionRulesIntoChain(iptablesProv.V6Provisioner, DefaultForwardRules, pod)
 }
 
 func provisionRulesIntoChain(provisioner k8stables.Interface, rules poltypes.NetRuleChain, pod *corev1.Pod) {
   for _, rule := range rules.Rules {
-		args := createArgsFromRule(rule)
-		_, err := provisioner.EnsureRule(k8stables.Append, k8stables.TableFilter, k8stables.Chain(rules.Name), args...)
+    args := createArgsFromRule(rule)
+    _, err := provisioner.EnsureRule(k8stables.Append, k8stables.TableFilter, k8stables.Chain(rules.Name), args...)
     if err != nil {
       log.Println("ERROR: provisioning iptables rule for Pod: " + pod.ObjectMeta.Name + " in ns: " + pod.ObjectMeta.Namespace + "with args:" + rule.String() +
+        " into chain:" + rules.Name + " failed with error:" + err.Error())
+    }
+  }
+  //We need to add a default "RETURN" rule to the end of our own chains
+  if rules.Name != string(k8stables.ChainInput) && rules.Name != string(k8stables.ChainOutput) && rules.Name != string(k8stables.ChainForward) {
+    args := createArgsFromRule(DefaultReturnRule)
+    _, err := provisioner.EnsureRule(k8stables.Append, k8stables.TableFilter, k8stables.Chain(rules.Name), args...)
+    if err != nil {
+      log.Println("ERROR: provisioning iptables rule for Pod: " + pod.ObjectMeta.Name + " in ns: " + pod.ObjectMeta.Namespace + "with args:" + DefaultReturnRule.String() +
         " into chain:" + rules.Name + " failed with error:" + err.Error())
     }
   }

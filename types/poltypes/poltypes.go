@@ -11,6 +11,11 @@ const (
   CustomBucketPostfix = "bucket42"
   IptablesReject = "REJECT"
   IptablesAccept = "ACCEPT"
+  IptablesReturn = "RETURN"
+  IngressV4ChainName = "DANM_INGRESS_V4"
+  IngressV6ChainName = "DANM_INGRESS_V6"
+  EgressV4ChainName = "DANM_EGRESS_V4"
+  EgressV6ChainName = "DANM_EGRESS_V6"
 )
 
 type RuleProvisioner interface {
