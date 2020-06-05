@@ -25,7 +25,8 @@ import (
 
 const(
   MaxRetryCount = 5
-  RetryInterval = 100
+  ShortRetryInterval = 100
+  LongRetryInterval = 500
   NodeNameEnv = "NODE_NAME"
 )
 
@@ -58,7 +59,7 @@ func NewNetPolControl(cfg *rest.Config, stopChan  *chan struct{}) (*NetPolContro
     _, err = polControl.PolicyClient.NetpolV1().DanmNetworkPolicies("").List(context.TODO(), metav1.ListOptions{})
     if err != nil {
       log.Println("INFO: DanmNetworkPolicy discovery query failed with error:" + err.Error())
-      time.Sleep(RetryInterval * time.Millisecond)
+      time.Sleep(ShortRetryInterval * time.Millisecond)
     } else {
       log.Println("INFO: DanmNetworkPolicy API seems to be installed in the cluster!")
       polControl.createPolicyController()
@@ -78,7 +79,7 @@ func (netpolController *NetPolControl) Run() {
 }
 
 func (netpolController *NetPolControl) WatchErrorHandler(r *cache.Reflector, err error) {
-	if apierrors.IsResourceExpired(err) || apierrors.IsGone(err) || err == io.EOF {
+  if apierrors.IsResourceExpired(err) || apierrors.IsGone(err) || err == io.EOF {
     log.Println("INFO: One of the API watchers closed gracefully, re-establishing connection")
     return
   }
@@ -99,7 +100,7 @@ func (netpolCtrl *NetPolControl) createPolicyController() {
       UpdateFunc: UpdateNetPol,
       DeleteFunc: DeleteNetPol,
   })
-  netpolCtrl.PolicyController.SetWatchErrorHandler(netpolCtrl.WatchErrorHandler)
+  polController.SetWatchErrorHandler(netpolCtrl.WatchErrorHandler)
   netpolCtrl.PolicyController = polController
 }
 
@@ -109,9 +110,9 @@ func (netpolCtrl *NetPolControl) createPodController(cfg *rest.Config) {
   podController := kubeInformerFactory.Core().V1().Pods().Informer()
   podController.AddEventHandler(cache.ResourceEventHandlerFuncs{
       AddFunc: netpolCtrl.AddPod,
-      UpdateFunc: UpdatePod,
+      UpdateFunc: netpolCtrl.UpdatePod,
   })
-  netpolCtrl.PodController.SetWatchErrorHandler(netpolCtrl.WatchErrorHandler)
+  podController.SetWatchErrorHandler(netpolCtrl.WatchErrorHandler)
   netpolCtrl.PodController = podController
 }
 
@@ -131,10 +132,18 @@ func (netpolCtrl *NetPolControl) AddPod(pod interface{}) {
   if len(applicablePols) == 0 {
     return
   }
-  depSet := depset.NewDanmEpSet(netpolCtrl.DanmClient, podObj)
+  var depSet *depset.DanmEpSet
+  for i := 0; i < MaxRetryCount; i++ {
+    depSet = depset.NewDanmEpSet(netpolCtrl.DanmClient, podObj)
+    //CNI might just be creating the DanmEps for the Pod
+    //To be on the safe side we need to retry a couple of times before we can decide we have an error
+    if len(depSet.PodEps) != 0 {break}
+    time.Sleep(LongRetryInterval * time.Millisecond)
+  }
   if len(depSet.PodEps) == 0 {
     log.Println("ERROR: DanmNetworkPolicy provisioning is impossible for Pod:" + podObj.ObjectMeta.Name + " in namespace:" +
-      podObj.ObjectMeta.Name + " becuase its networking is not managed by DANM!")  
+      podObj.ObjectMeta.Name + " becuase its networking is not managed by DANM!")
+    return
   }
   //Kubernetes doesn't remember the netns of the Pod, but we do. We need to read it from one of the DanmEps belonging to the Pod
   netRuleSet := netruleset.NewNetRuleSet(applicablePols, *depSet.DanmEps, depSet.PodEps[0].Spec.Netns)
@@ -142,5 +151,10 @@ func (netpolCtrl *NetPolControl) AddPod(pod interface{}) {
   ruleProvisioner := iptables.NewIptablesProvisioner()
   go ruleProvisioner.AddRulesToNewPod(netRuleSet, podObj)
 }
-
-func UpdatePod(oldPod, newPod interface{}) {}
+func (netpolCtrl *NetPolControl) UpdatePod(oldPod, newPod interface{}) {
+  oldPodObj := oldPod.(*corev1.Pod)
+  newPodObj := newPod.(*corev1.Pod)
+  if oldPodObj.Spec.NodeName != newPodObj.Spec.NodeName {
+    netpolCtrl.AddPod(newPod)
+  }
+}

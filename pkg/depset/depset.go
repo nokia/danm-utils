@@ -1,8 +1,8 @@
 package depset
 
 import (
-  "log"
   "context"
+  "log"
   danmv1 "github.com/nokia/danm/crd/apis/danm/v1"
   danmclientset "github.com/nokia/danm/crd/client/clientset/versioned"
   "github.com/nokia/danm-utils/types/poltypes"
@@ -37,6 +37,10 @@ func sortDeps(deps []danmv1.DanmEp, pod *corev1.Pod) (*poltypes.DanmEpBuckets,[]
     }
     for key, value := range dep.ObjectMeta.Labels {
       if _, ok := depUidCache[key+value+poltypes.CustomBucketPostfix][dep.ObjectMeta.UID]; !ok {
+        if depUidCache[key+value+poltypes.CustomBucketPostfix] == nil {
+          cache := make(poltypes.UidCache, 0)
+          depUidCache[key+value+poltypes.CustomBucketPostfix] = cache
+        }
         depUidCache[key+value+poltypes.CustomBucketPostfix][dep.ObjectMeta.UID] = true
         depBuckets[key+value+poltypes.CustomBucketPostfix] = append(depBuckets[key+value+poltypes.CustomBucketPostfix], dep)
       }

@@ -1,29 +1,44 @@
+# Set defaults
+ARG USERNAME=danm
+ARG UID=147
 ARG BUILDER=golang:1.13-alpine3.10
-ARG APK_EXTRA_ARGS
-FROM ${BUILDER} as base
 
-RUN apk add --no-cache --no-progress ${APK_EXTRA_ARGS} ca-certificates make git bash
+FROM ${BUILDER} AS builder
+MAINTAINER Levente Kale <levente.kale@nokia.com>
+ARG USERNAME
+ARG UID
 
-ENV GOOS=linux
-ENV CGO_ENABLED=0
+RUN apk add --no-cache ca-certificates make git bash
+
+RUN mkdir -p ${GOPATH}/src/github.com/nokia/danm-utils
+COPY / ${GOPATH}/src/github.com/nokia/danm-utils/
+
 WORKDIR ${GOPATH}/src/github.com/nokia/danm-utils
 
-FROM base as builder
-ADD go.* ./
-RUN go mod download
-ADD cmd cmd
-ADD pkg pkg
-
-RUN go install -ldflags "-extldflags '-static'" github.com/nokia/danm-utils/cmd/cleaner
-RUN chmod 750 ${GOPATH}/bin/cleaner
-ADD . .
-ENTRYPOINT ./scm/build/build.sh
+RUN scm/build/build.sh \
+ && adduser -u ${UID} -D -H -s /sbin/nologin ${USERNAME} \
+ && chown root:${USERNAME} /go/bin/cleaner /go/bin/policer \
+ && chmod 0750 /go/bin/*
 
 FROM alpine:latest as cleaner
 MAINTAINER Levente Kale <levente.kale@nokia.com>
 
 RUN adduser -u 666 -D -H -s /sbin/nologin cleaner
-COPY --from=builder --chown=root:cleaner  /go/bin/cleaner /usr/local/bin/cleaner
+COPY --from=builder /go/bin/cleaner /usr/local/bin/cleaner
 USER cleaner
 WORKDIR /
 ENTRYPOINT ["/usr/local/bin/cleaner"]
+
+FROM alpine:latest AS policer
+MAINTAINER Levente Kale <levente.kale@nokia.com>
+ARG USERNAME
+ARG UID
+RUN adduser -u ${UID} -D -H -s /sbin/nologin ${USERNAME}
+WORKDIR /
+USER ${USER}
+COPY --from=builder /go/bin/policer /usr/local/bin/policer
+RUN apk add --no-cache iptables ip6tables
+RUN apk add --no-cache --virtual .tools libcap \
+ && setcap cap_net_raw,cap_net_admin,cap_sys_admin=eip /usr/local/bin/policer \
+ && apk del .tools
+ENTRYPOINT ["/usr/local/bin/policer"]
