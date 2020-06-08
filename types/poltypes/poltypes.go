@@ -16,6 +16,8 @@ const (
   IngressV6ChainName = "DANM_INGRESS_V6"
   EgressV4ChainName = "DANM_EGRESS_V4"
   EgressV6ChainName = "DANM_EGRESS_V6"
+  StateEstablishedRelated = "ESTABLISHED,RELATED"
+  StateNewEstablished = "NEW,ESTABLISHED"
 )
 
 type RuleProvisioner interface {
@@ -48,6 +50,7 @@ type NetRule struct {
   DestIface   string
   Protocol    string
   Operation   string
+  State       string
 }
 
 func (rule NetRule) String() string {
@@ -60,5 +63,6 @@ func (rule NetRule) String() string {
   if rule.SourceIp    != "" {ruleStr += " source IP:" + rule.SourceIp}
   if rule.DestIp      != "" {ruleStr += " dest IP:" + rule.DestIp}
   if rule.Operation   != "" {ruleStr += " op:" + rule.Operation}
+  if rule.State       != "" {ruleStr += " state:" + rule.State}
   return ruleStr
 }
