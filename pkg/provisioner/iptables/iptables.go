@@ -13,13 +13,20 @@ import (
 var (
   DefaultInputRules = poltypes.NetRuleChain {
     Name: string(k8stables.ChainInput), Rules: []poltypes.NetRule {
+      //Allow localhost communication by default
       poltypes.NetRule{SourceIface: "lo", Operation: poltypes.IptablesAccept,},
+      //Allow bi-directional communication through connections already established with trusted entities
+      poltypes.NetRule{State: poltypes.StateEstablishedRelated, Operation: poltypes.IptablesAccept,},
       poltypes.NetRule{Operation: poltypes.IptablesReject,},
     },
   }
   DefaultOutputRules = poltypes.NetRuleChain {
     Name: string(k8stables.ChainOutput), Rules: []poltypes.NetRule {
+      //Allow localhost communication by default
       poltypes.NetRule{DestIface: "lo", Operation: poltypes.IptablesAccept,},
+      //Allow outgoing cluster DNS communication by default. Can happen via either TCP, or UDP
+      poltypes.NetRule{Protocol: "tcp", DestPort: "53", State: poltypes.StateNewEstablished, Operation: poltypes.IptablesAccept,},
+      poltypes.NetRule{Protocol: "udp", DestPort: "53", State: poltypes.StateNewEstablished, Operation: poltypes.IptablesAccept,},
       poltypes.NetRule{Operation: poltypes.IptablesReject,},
     },
   }
@@ -173,6 +180,7 @@ func createArgsFromRule(rule poltypes.NetRule) []string {
   if rule.DestIface   != "" {args = append(args, "-o", rule.DestIface)}
   if rule.SourceIp    != "" {args = append(args, "-s", rule.SourceIp)}
   if rule.DestIp      != "" {args = append(args, "-d", rule.DestIp)}
+  if rule.State       != "" {args = append(args, "-m", "conntrack", "--ctstate", rule.State)}
   if rule.Operation   != "" {args = append(args, "-j", rule.Operation)
   } else {args = append(args, "-j", poltypes.IptablesAccept)}
   return args
