@@ -12,8 +12,8 @@ import (
 
 type RuleParser func(address string, ports []networking.NetworkPolicyPort) []poltypes.NetRule
 
-func NewNetRuleSet(polSet []polv1.DanmNetworkPolicy, depSet poltypes.DanmEpBuckets, netns string) *poltypes.NetRuleSet {
-  ruleSet := poltypes.NetRuleSet{Netns: netns}
+func NewNetRuleSet(polSet []polv1.DanmNetworkPolicy, depSet *poltypes.DanmEpSet) *poltypes.NetRuleSet {
+  ruleSet := poltypes.NetRuleSet{Netns: depSet.PodEps[0].Spec.Netns}
   ruleSet.IngressV4Chain.Name = poltypes.IngressV4ChainName
   ruleSet.IngressV6Chain.Name = poltypes.IngressV6ChainName
   ruleSet.EgressV4Chain.Name = poltypes.EgressV4ChainName
@@ -31,7 +31,7 @@ func NewNetRuleSet(polSet []polv1.DanmNetworkPolicy, depSet poltypes.DanmEpBucke
   return &ruleSet
 }
 
-func parseAndAppendPolicyRules(depSet poltypes.DanmEpBuckets, peers []polv1.NetworkPolicyPeer, ports []networking.NetworkPolicyPort, parserFunc RuleParser) ([]poltypes.NetRule,[]poltypes.NetRule) {
+func parseAndAppendPolicyRules(depSet *poltypes.DanmEpSet, peers []polv1.NetworkPolicyPeer, ports []networking.NetworkPolicyPort, parserFunc RuleParser) ([]poltypes.NetRule,[]poltypes.NetRule) {
   v4Rules := make([]poltypes.NetRule, 0)
   v6Rules := make([]poltypes.NetRule, 0)
   for _, peer := range peers {
@@ -42,7 +42,7 @@ func parseAndAppendPolicyRules(depSet poltypes.DanmEpBuckets, peers []polv1.Netw
       continue
     }
     for key, value := range selectors {
-      for _, dep := range depSet[key+value+poltypes.CustomBucketPostfix] {
+      for _, dep := range depSet.DanmEpsByLabel[key+value+poltypes.CustomBucketPostfix] {
         if _, ok := depCache[dep.ObjectMeta.UID]; !ok {
           depCache[dep.ObjectMeta.UID] = true
           if dep.Spec.Iface.Address != "" && dep.Spec.Iface.Address != ipam.NoneAllocType {

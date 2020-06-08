@@ -186,7 +186,11 @@ func (in *NetworkPolicyPeer) DeepCopyInto(out *NetworkPolicyPeer) {
 	*out = *in
 	in.PodSelector.DeepCopyInto(&out.PodSelector)
 	in.NamespaceSelector.DeepCopyInto(&out.NamespaceSelector)
-	out.NetworkSelector = in.NetworkSelector
+	if in.NetworkSelector != nil {
+		in, out := &in.NetworkSelector, &out.NetworkSelector
+		*out = make([]NetworkSelector, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

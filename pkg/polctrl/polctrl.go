@@ -14,6 +14,7 @@ import (
   "github.com/nokia/danm-utils/pkg/netruleset"
   "github.com/nokia/danm-utils/pkg/polset"
   "github.com/nokia/danm-utils/pkg/provisioner/iptables"
+  "github.com/nokia/danm-utils/types/poltypes"
   corev1 "k8s.io/api/core/v1"
   metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
   apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -132,7 +133,7 @@ func (netpolCtrl *NetPolControl) AddPod(pod interface{}) {
   if len(applicablePols) == 0 {
     return
   }
-  var depSet *depset.DanmEpSet
+  var depSet *poltypes.DanmEpSet
   for i := 0; i < MaxRetryCount; i++ {
     depSet = depset.NewDanmEpSet(netpolCtrl.DanmClient, podObj)
     //CNI might just be creating the DanmEps for the Pod
@@ -146,7 +147,7 @@ func (netpolCtrl *NetPolControl) AddPod(pod interface{}) {
     return
   }
   //Kubernetes doesn't remember the netns of the Pod, but we do. We need to read it from one of the DanmEps belonging to the Pod
-  netRuleSet := netruleset.NewNetRuleSet(applicablePols, *depSet.DanmEps, depSet.PodEps[0].Spec.Netns)
+  netRuleSet := netruleset.NewNetRuleSet(applicablePols, depSet)
   //TODOD: make this configurable once we have multiple executors to choose from
   ruleProvisioner := iptables.NewIptablesProvisioner()
   go ruleProvisioner.AddRulesToNewPod(netRuleSet, podObj)

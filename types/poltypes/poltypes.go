@@ -18,6 +18,8 @@ const (
   EgressV6ChainName = "DANM_EGRESS_V6"
   StateEstablishedRelated = "ESTABLISHED,RELATED"
   StateNewEstablished = "NEW,ESTABLISHED"
+  DanmNetKind  = "DanmNet"
+  ClusterNetworkKind = "ClusterNetwork"
 )
 
 type RuleProvisioner interface {
@@ -27,6 +29,12 @@ type RuleProvisioner interface {
 type UidCache map[types.UID]bool
 
 type DanmEpBuckets map[string][]danmv1.DanmEp
+
+type DanmEpSet struct {
+  DanmEpsByLabel   DanmEpBuckets
+  DanmEpsByNetwork DanmEpBuckets
+  PodEps  []danmv1.DanmEp
+}
 
 type NetRuleSet struct {
   IngressV4Chain NetRuleChain

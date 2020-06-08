@@ -40,7 +40,7 @@ type NetworkPolicyEgressRule struct {
 type NetworkPolicyPeer struct {
   PodSelector       metav1.LabelSelector `json:"podSelector,omitempty" protobuf:"bytes,1,opt,name=podSelector"`
   NamespaceSelector metav1.LabelSelector `json:"namespaceSelector,omitempty" protobuf:"bytes,2,opt,name=namespaceSelector"`
-  NetworkSelector   NetworkSelector      `json:"networkSelector,omitempty" protobuf:"bytes,3,opt,name=networkSelector"`
+  NetworkSelector   []NetworkSelector    `json:"networkSelector,omitempty" protobuf:"bytes,3,opt,name=networkSelector"`
 }
 
 type NetworkSelector struct {
