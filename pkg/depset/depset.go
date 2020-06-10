@@ -34,9 +34,6 @@ func sortDeps(deps []danmv1.DanmEp, pod *corev1.Pod) (poltypes.DanmEpBuckets,pol
     if dep.Spec.ApiType == "" {
       networkBucketName += poltypes.DanmNetKind
     }
-    if dep.Spec.ApiType != poltypes.ClusterNetworkKind {
-      networkBucketName += dep.ObjectMeta.Namespace
-    }
     depNetworkBuckets[networkBucketName] = append(depNetworkBuckets[networkBucketName], dep)
     for key, value := range dep.ObjectMeta.Labels {
       if _, ok := depUidCache[key+value+poltypes.CustomBucketPostfix][dep.ObjectMeta.UID]; !ok {
