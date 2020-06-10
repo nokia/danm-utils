@@ -161,7 +161,7 @@ func provisionRulesIntoChain(provisioner k8stables.Interface, rules poltypes.Net
     }
   }
   //We need to add a default "RETURN" rule to the end of our own chains
-  if rules.Name != string(k8stables.ChainInput) && rules.Name != string(k8stables.ChainOutput) && rules.Name != string(k8stables.ChainForward) {
+  if rules.Name != string(k8stables.ChainInput) && rules.Name != string(k8stables.ChainOutput) && rules.Name != string(k8stables.ChainForward) && len(rules.Rules) > 0 {
     args := createArgsFromRule(DefaultReturnRule)
     _, err := provisioner.EnsureRule(k8stables.Append, k8stables.TableFilter, k8stables.Chain(rules.Name), args...)
     if err != nil {

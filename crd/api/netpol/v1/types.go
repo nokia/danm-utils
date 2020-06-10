@@ -21,7 +21,7 @@ type DanmNetworkPolicyList struct {
 }
 
 type NetPolSpec struct {
-  PodSelector  metav1.LabelSelector       `json:"podSelector" protobuf:"bytes,1,opt,name=podSelector"`
+  PodSelector metav1.LabelSelector        `json:"podSelector" protobuf:"bytes,1,opt,name=podSelector"`
   Ingress     []NetworkPolicyIngressRule  `json:"ingress,omitempty" protobuf:"bytes,2,rep,name=ingress"`
   Egress      []NetworkPolicyEgressRule   `json:"egress,omitempty" protobuf:"bytes,3,rep,name=egress"`
   PolicyTypes []networking.PolicyType     `json:"policyTypes,omitempty" protobuf:"bytes,4,rep,name=policyTypes"`
@@ -40,7 +40,7 @@ type NetworkPolicyEgressRule struct {
 type NetworkPolicyPeer struct {
   PodSelector       metav1.LabelSelector `json:"podSelector,omitempty" protobuf:"bytes,1,opt,name=podSelector"`
   NamespaceSelector metav1.LabelSelector `json:"namespaceSelector,omitempty" protobuf:"bytes,2,opt,name=namespaceSelector"`
-  NetworkSelector   NetworkSelector      `json:"networkSelector,omitempty" protobuf:"bytes,3,opt,name=networkSelector"`
+  NetworkSelector   []NetworkSelector    `json:"networkSelector,omitempty" protobuf:"bytes,3,opt,name=networkSelector"`
 }
 
 type NetworkSelector struct {

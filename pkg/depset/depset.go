@@ -10,31 +10,31 @@ import (
   metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type DanmEpSet struct {
-  DanmEps *poltypes.DanmEpBuckets
-  PodEps  []danmv1.DanmEp
-}
-
-func NewDanmEpSet(danmClient danmclientset.Interface, pod *corev1.Pod) *DanmEpSet {
-  var depSet DanmEpSet
+func NewDanmEpSet(danmClient danmclientset.Interface, pod *corev1.Pod) *poltypes.DanmEpSet {
+  var depSet poltypes.DanmEpSet
   deps, err := danmClient.DanmV1().DanmEps(pod.ObjectMeta.Namespace).List(context.TODO(), metav1.ListOptions{})
   if err != nil {
     log.Println("ERROR: can't list DANM DanmEps API because:" + err.Error())
     return &depSet
   }
-  depSet.DanmEps, depSet.PodEps = sortDeps(deps.Items, pod)
+  depSet.DanmEpsByLabel, depSet.DanmEpsByNetwork, depSet.PodEps = sortDeps(deps.Items, pod)
   return &depSet
 }
 
-func sortDeps(deps []danmv1.DanmEp, pod *corev1.Pod) (*poltypes.DanmEpBuckets,[]danmv1.DanmEp)  {
-  depBuckets := make(poltypes.DanmEpBuckets, 0)
+func sortDeps(deps []danmv1.DanmEp, pod *corev1.Pod) (poltypes.DanmEpBuckets,poltypes.DanmEpBuckets,[]danmv1.DanmEp)  {
+  depPodLabelBuckets := make(poltypes.DanmEpBuckets, 0)
+  depNetworkBuckets := make(poltypes.DanmEpBuckets, 0)
   depUidCache := make(map[string]poltypes.UidCache, 0)
   podEps := make([]danmv1.DanmEp, 0)
   for _, dep := range deps {
     if dep.Spec.PodUID == pod.ObjectMeta.UID {
       podEps = append(podEps, dep)
-      continue
     }
+    networkBucketName := dep.Spec.NetworkName + dep.Spec.ApiType
+    if dep.Spec.ApiType == "" {
+      networkBucketName += poltypes.DanmNetKind
+    }
+    depNetworkBuckets[networkBucketName] = append(depNetworkBuckets[networkBucketName], dep)
     for key, value := range dep.ObjectMeta.Labels {
       if _, ok := depUidCache[key+value+poltypes.CustomBucketPostfix][dep.ObjectMeta.UID]; !ok {
         if depUidCache[key+value+poltypes.CustomBucketPostfix] == nil {
@@ -42,9 +42,9 @@ func sortDeps(deps []danmv1.DanmEp, pod *corev1.Pod) (*poltypes.DanmEpBuckets,[]
           depUidCache[key+value+poltypes.CustomBucketPostfix] = cache
         }
         depUidCache[key+value+poltypes.CustomBucketPostfix][dep.ObjectMeta.UID] = true
-        depBuckets[key+value+poltypes.CustomBucketPostfix] = append(depBuckets[key+value+poltypes.CustomBucketPostfix], dep)
+        depPodLabelBuckets[key+value+poltypes.CustomBucketPostfix] = append(depPodLabelBuckets[key+value+poltypes.CustomBucketPostfix], dep)
       }
     }
   }
-  return &depBuckets, podEps
+  return depPodLabelBuckets, depNetworkBuckets, podEps
 }
