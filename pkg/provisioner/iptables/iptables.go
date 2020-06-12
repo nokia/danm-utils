@@ -15,7 +15,7 @@ var (
     Name: string(k8stables.ChainInput), Rules: []poltypes.NetRule {
       //Allow localhost communication by default
       poltypes.NetRule{SourceIface: "lo", Operation: poltypes.IptablesAccept,},
-      //Allow bi-directional communication through connections already established with trusted entities
+      //Allow bi-directional communication through connections already established with trusted Egress entities
       poltypes.NetRule{State: poltypes.StateEstablishedRelated, Operation: poltypes.IptablesAccept,},
       poltypes.NetRule{Operation: poltypes.IptablesReject,},
     },
@@ -24,6 +24,8 @@ var (
     Name: string(k8stables.ChainOutput), Rules: []poltypes.NetRule {
       //Allow localhost communication by default
       poltypes.NetRule{DestIface: "lo", Operation: poltypes.IptablesAccept,},
+      //Allow bi-directional communication through connections already established with trusted Ingress entities
+      poltypes.NetRule{State: poltypes.StateEstablishedRelated, Operation: poltypes.IptablesAccept,},
       //Allow outgoing cluster DNS communication by default. Can happen via either TCP, or UDP
       poltypes.NetRule{Protocol: "tcp", DestPort: "53", State: poltypes.StateNewEstablished, Operation: poltypes.IptablesAccept,},
       poltypes.NetRule{Protocol: "udp", DestPort: "53", State: poltypes.StateNewEstablished, Operation: poltypes.IptablesAccept,},
