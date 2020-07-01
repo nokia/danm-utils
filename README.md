@@ -38,7 +38,7 @@ Even the handful of CNIs which do support this API implemented it in a tightly c
 But how can you secure your networks in environments where your Pods require multiple interfaces, provided by different CNIs? Do you really need to choose between security and performance?  
 Not anymore with DANM Policer! The utility is built upon the unique feature set of the DANM CNI platform which enabled the creation of a universal micro-segmentation backend for Kubernetes.Policer promises to isolate any network interfaces of your Pods, created via any CNIs!
 
-Fore more information on installation, usage, and features refer to Cleaner's own user guide: TODO
+Fore more information on installation, usage, and features refer to Policer's own user guide: [Policer User Guide](https://github.com/nokia/danm-utils/blob/master/policer_user_guide.md)
 
 ## Showalloc
 Showalloc is a handy diagnostic tool which can be used to decode and show the IP allocations of DanmNets, ClusterNetworks and TenantNetworks.
