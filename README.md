@@ -69,3 +69,8 @@ DANM network Kind: DanmNet
    10.100.100.5 : allocated (Pod: danmtest-869444956b-2j2vp)
  10.100.100.255 : reserved (broadcast address)
 ```
+
+
+## License
+
+This project is licensed under the BSD-3-Clause license - see the [LICENSE](https://github.com/nokia/danm-utils/blob/master/LICENSE).
