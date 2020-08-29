@@ -3,8 +3,14 @@ module github.com/nokia/danm-utils
 go 1.13
 
 require (
+	github.com/apparentlymart/go-cidr v1.1.0 // indirect
 	github.com/containernetworking/plugins v0.8.5
-	github.com/nokia/danm v0.0.0-20200417125417-2c9d61ca9cdd
+	github.com/intel/multus-cni v0.0.0-20200316130803-079c853eba60 // indirect
+	github.com/intel/sriov-cni v2.1.0+incompatible // indirect
+	github.com/j-keck/arping v1.0.0 // indirect
+	github.com/nokia/danm v0.0.0-20200829131925-94fce4202a96
+	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b // indirect
+	github.com/vishvananda/netlink v1.1.1-0.20200221165523-c79a4b7b4066 // indirect
 	k8s.io/api v0.19.0-beta.0
 	k8s.io/apimachinery v0.19.0-beta.0
 	k8s.io/client-go v0.18.3

@@ -5,6 +5,7 @@ import (
   "errors"
   "log"
   "fmt"
+  "strings"
   "time"
   "github.com/nokia/danm/pkg/danmep"
   "github.com/nokia/danm/pkg/netcontrol"
@@ -161,12 +162,11 @@ func (c *Cleaner) processItemInQueue(obj interface{}) error {
 }
 
 func (c *Cleaner) handleKey(key string) error {
-  ns, name, err := cache.SplitMetaNamespaceKey(key)
-  if err != nil {
-    log.Println("WARNING: Dropping work item from because its key:" + key + " could not be broken up into API object identifiers due to error:" + err.Error())
-    return nil
+  parts := strings.Split(key, "/")
+  if len(parts) < 2 {
+    return errors.New("key could not be decoded properly, UID or namespace information is missing")
   }
-  deps, err := danmep.FindByPodName(c.DanmClient, name, ns)
+  deps, err := danmep.FindByPodUid(c.DanmClient, parts[0], parts[1])
   if err != nil {
     return err
   }
@@ -210,22 +210,12 @@ func (c *Cleaner) updatePod(old, new interface{}) {
   //TODO: what happens when a Node loses connection, but comes back before Pod timeout?
   //      does the Pod changes state? do we accidentally cleanup?
   if !isPodRunning(newPod) && isPodRunning(oldPod) {
-    c.enqueuePod(new)
+    c.Workqueue.Add(string(newPod.GetUID()) + "/" + newPod.GetNamespace())
   }
 }
 
 func isPodRunning(pod *corev1.Pod) bool {
   return pod.Status.Phase == corev1.PodRunning
-}
-
-func (c *Cleaner) enqueuePod(obj interface{}) {
-  var key string
-  var err error
-  if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
-    log.Println("WARNING: Could not schedule Pod for automatic cleanup because:" + err.Error())
-    return
-  }
-  c.Workqueue.Add(key)
 }
 
 func (c *Cleaner) delPod(obj interface{}) {
@@ -239,5 +229,6 @@ func (c *Cleaner) delPod(obj interface{}) {
       return
     }
   }
-  c.enqueuePod(obj)
+  pod := obj.(*corev1.Pod)
+  c.Workqueue.Add(string(pod.GetUID()) + "/" + pod.GetNamespace())
 }
