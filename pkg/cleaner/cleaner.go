@@ -3,17 +3,19 @@ package cleaner
 import (
   "context"
   "errors"
-  "log"
   "fmt"
+  "log"
   "time"
-  "github.com/nokia/danm/pkg/danmep"
-  "github.com/nokia/danm/pkg/netcontrol"
+
+  cleaner "github.com/nokia/danm-utils/pkg/danmep"
   danmv1 "github.com/nokia/danm/crd/apis/danm/v1"
   danmclientset "github.com/nokia/danm/crd/client/clientset/versioned"
   danmscheme "github.com/nokia/danm/crd/client/clientset/versioned/scheme"
+  "github.com/nokia/danm/pkg/danmep"
+  "github.com/nokia/danm/pkg/netcontrol"
   corev1 "k8s.io/api/core/v1"
-  meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
   k8serr "k8s.io/apimachinery/pkg/api/errors"
+  meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
   "k8s.io/apimachinery/pkg/types"
   "k8s.io/apimachinery/pkg/util/runtime"
   "k8s.io/apimachinery/pkg/util/wait"
@@ -190,13 +192,16 @@ func deleteInterface(danmClient danmclientset.Interface, ep danmv1.DanmEp) {
   }
   netInfo, err := netcontrol.GetNetworkFromEp(danmClient, &ep)
   if err != nil {
-    log.Println("WARNING: Danmep:" + ep.ObjectMeta.Name + " in namespace:" + ep.ObjectMeta.Namespace + "could not be cleaned as its network could not be GET from K8s API server:" + err.Error())
+    log.Printf(
+      "WARNING: DanmEp '%s' in namespace '%s' could not be cleaned as its network could not be GET from K8s API server: %s",
+      ep.ObjectMeta.Name, ep.ObjectMeta.Namespace, err)
     return
   }
-  //TODO: this definitely need to be expanded into a framework, where network type specific cleanup operations can be plugged-in
-  err = danmep.DeleteDanmEp(danmClient, &ep, netInfo)
+  err = cleaner.DeleteDanmEp(danmClient, &ep, netInfo)
   if err != nil {
-    log.Println("WARNING: Danmep:" + ep.ObjectMeta.Name + " in namespace:" + ep.ObjectMeta.Namespace + "could not be cleaned because of error:" + err.Error()) 
+    log.Printf(
+      "WARNING: Danmep '%s' in namespace '%s' with network type '%s' could not be cleaned because of error: %s",
+      ep.ObjectMeta.Name, ep.ObjectMeta.Namespace, ep.Spec.NetworkType, err)
   }
 }
 

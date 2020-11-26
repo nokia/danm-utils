@@ -2,11 +2,13 @@
 ARG USERNAME=danm
 ARG UID=147
 ARG BUILDER=golang:1.13-alpine3.10
+ARG CALICOCTL_VERSION=v3.16.0
 
 FROM ${BUILDER} AS builder
 MAINTAINER Levente Kale <levente.kale@nokia.com>
 ARG USERNAME
 ARG UID
+ARG CALICOCTL_VERSION
 
 RUN apk add --no-cache ca-certificates make git bash
 
@@ -19,12 +21,14 @@ RUN scm/build/build.sh \
  && adduser -u ${UID} -D -H -s /sbin/nologin ${USERNAME} \
  && chown root:${USERNAME} /go/bin/cleaner /go/bin/policer \
  && chmod 0750 /go/bin/*
+ADD https://github.com/projectcalico/calicoctl/releases/download/${CALICOCTL_VERSION}/calicoctl /go/bin/
+RUN chmod +x /go/bin/calicoctl && chown root:${USERNAME} /go/bin/calicoctl
 
 FROM alpine:latest as cleaner
 MAINTAINER Levente Kale <levente.kale@nokia.com>
 
 RUN adduser -u 666 -D -H -s /sbin/nologin cleaner
-COPY --from=builder /go/bin/cleaner /usr/local/bin/cleaner
+COPY --from=builder /go/bin/cleaner /go/bin/calicoctl /usr/local/bin/
 USER cleaner
 WORKDIR /
 ENTRYPOINT ["/usr/local/bin/cleaner"]
