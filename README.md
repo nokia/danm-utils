@@ -30,6 +30,42 @@ This is particularly important in an environment where static IP allocations are
 
 Not anymore with Cleaner's self-healing magic! If you rely on DANM's powerful IPAM to manage the IP addresses in your cluster, and especially if you also use static allocations we strongly suggest installing Cleaner in your long-running, production environment.
 
+### Static CNIs 
+#### Calico
+There are cases when calico IPAM cannot release POD allocated IPs, like when a whole cluster goes down. On the long run this could cause calico to deplete its configured IP allocation pools, thus preventing IP assignment of new PODs.
+
+Cleaner supports cleaning up occupied calico IPs while cleaning up dangling DanmEps.
+##### Install Steps
+1. Clone danm-utils project 
+2. Gather used calico version on your cluster
+3. Set gathered version as `CALICOCTL_VERSION` docker build argument in `scm/build/Dockerfile` to have cleaner use same calicoctl version as calico in your cluster
+4. Build cleaner image with `build_cleaner.sh`
+5. Create configmaps needed for calicoctl
+   - When connection to an etcd datastore
+     - calicoctl config
+       ```shell script
+       kubectl create configmap calico-config --from-file=/etc/calico/calicoctl.cfg
+       ```
+       [Example config](https://docs.projectcalico.org/getting-started/clis/calicoctl/configure/etcd#example-configuration-file)
+     - etcd client certificates
+       ```shell script
+       kubectl create secret generic calico-datastore-secret --from-file=/etc/etcd/ssl/ca.pem --from-file=/etc/etcd/ssl/etcd-client-key.pem --from-file=/etc/etcd/ssl/etcd-client.pem
+       ```
+   - When connection to a kubernetes API datastore
+     - calicoctl config
+       ```shell script
+       kubectl create configmap calico-config --from-file=/etc/calico/calicoctl.cfg
+       ```
+       [Example config](https://docs.projectcalico.org/getting-started/clis/calicoctl/configure/kdd#example-configuration-file)
+     - kube config certificates
+       ```shell script
+       kubectl create secret generic calico-datastore-secret --from-file=~/.kube/config
+       ```
+       Note: To activate this configuration type one should modify `spec.template.spec.containers[0].volumeMounts[1].mountPath` in `integration/manifests/cleaner/cleaner-for-calico.yaml` to enable calicoctl connection via kube-config in cleaner container
+6. Create kubernetes manifests with calico support
+   ```shell script
+   kubectl apply -f integration/manifests/cleaner/cleaner-for-calico.yaml
+   ```
 Fore more information on installation, usage, and features refer to Cleaner's own user guide: TODO
 
 ## DANM Policer

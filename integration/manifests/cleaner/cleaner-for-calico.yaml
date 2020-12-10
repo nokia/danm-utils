@@ -1,0 +1,96 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: danm-cleaner
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: caas:danm-cleaner
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - list
+  - watch
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - events
+  - endpoints
+  verbs:
+  - create
+  - update
+  - get
+- apiGroups:
+  - danm.k8s.io
+  resources:
+  - danmnets
+  - danmeps
+  - tenantnetworks
+  - clusternetworks
+  verbs: [ "*" ]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: caas:danm-cleaner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: caas:danm-cleaner
+subjects:
+- kind: ServiceAccount
+  name: danm-cleaner
+  namespace: kube-system
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: danm-cleaner
+  namespace: kube-system
+  labels:
+    danm: cleaner
+spec:
+  selector:
+    matchLabels:
+     danm: cleaner
+  template:
+    metadata:
+      name: danm-cleaner
+      labels:
+        danm: cleaner
+    spec:
+      serviceAccountName: danm-cleaner
+      containers:
+      - name: danm-cleaner
+        image: cleaner
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: calico-config
+          mountPath: /etc/calico/calicoctl.cfg
+          readOnly: true
+        - name: calico-datastore-secret
+          # Switch out mountPath commented one when calico should connect via kubernetes API datastore
+          # mountPath: /home/danm/.kube/config
+          mountPath: /etc/etcd/ssl
+          readOnly: true
+    volumes:
+    - name: calico-config
+      configMap:
+        name: calico-configmap
+    - name: calico-datastore-secret
+      secret:
+        secretName: calico-datastore-secret
+# Create needed configmaps by running these commands on one of the kubernetes controller nodes:
+#
+# > kubectl create configmap calico-config --from-file=/etc/calico/calicoctl.cfg
+# > kubectl create secret generic calico-datastore-secret --from-file=/etc/etcd/ssl/ca.pem --from-file=/etc/etcd/ssl/etcd-client-key.pem --from-file=/etc/etcd/ssl/etcd-client.pem
+#   OR for kube-config case
+# > kubectl create secret generic calico-datastore-secret --from-file=~/.kube/config
+#
+# Reference calicoctl.cfg: https://docs.projectcalico.org/getting-started/clis/calicoctl/configure
