@@ -14,6 +14,7 @@ type calicoReleaseIPServiceImpl releaseIPServiceImplBase
 func (h *calicoReleaseIPServiceImpl) IsIPAllocatedByMe(ip string) bool {
     return ip != danmipam.NoneAllocType && ip != "" &&
         ! danmipam.WasIpAllocatedByDanm(ip, h.dnet.Spec.Options.Cidr) &&
+        ! danmipam.WasIpAllocatedByDanm(ip, h.dnet.Spec.Options.Pool6.Cidr) &&
         h.ep.Spec.NetworkType == "calico"
 }
 

@@ -51,11 +51,15 @@ func DeleteDanmEp(danmClient danmclientset.Interface, ep *danmtypes.DanmEp, dnet
         if err := service.ReleaseIP(ep.Spec.Iface.Address); err != nil {
             return fmt.Errorf("unable to release ipv4 IP because: %s", err)
         }
+    } else {
+      return fmt.Errorf("unable to release ipv4 IP because: no releaseIP Service selected")
     }
     if service := SelectReleaseIpServiceImplementation(danmClient, dnet, ep, ep.Spec.Iface.AddressIPv6); service != nil {
         if err := service.ReleaseIP(ep.Spec.Iface.AddressIPv6); err != nil {
             return fmt.Errorf("unable to release ipv6 IP because: %s", err)
         }
+    } else {
+        return fmt.Errorf("unable to release ipv6 IP because: no releaseIP Service selected")
     }
     return danmClient.DanmV1().DanmEps(ep.ObjectMeta.Namespace).Delete(context.TODO(), ep.ObjectMeta.Name, metav1.DeleteOptions{})
 }
