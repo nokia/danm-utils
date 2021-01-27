@@ -7,7 +7,8 @@ import (
 type danmReleaseIPServiceImpl releaseIPServiceImplBase
 
 func (h *danmReleaseIPServiceImpl) IsIPAllocatedByMe(ip string) bool {
-    return danmipam.WasIpAllocatedByDanm(ip, h.dnet.Spec.Options.Cidr)
+    return danmipam.WasIpAllocatedByDanm(ip, h.dnet.Spec.Options.Cidr) ||
+        danmipam.WasIpAllocatedByDanm(ip, h.dnet.Spec.Options.Pool6.Cidr)
 }
 
 func (h *danmReleaseIPServiceImpl) ReleaseIP(ip string) error {
