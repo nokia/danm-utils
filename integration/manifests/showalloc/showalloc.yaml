@@ -10,7 +10,7 @@ metadata:
   name: caas:danm-showalloc
 rules:
 - apiGroups:
-  - danm.k8s.io
+  - danm.io
   resources:
   - danmnets
   - tenantnetworks

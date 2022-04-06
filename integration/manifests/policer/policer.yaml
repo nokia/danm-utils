@@ -15,7 +15,7 @@ metadata:
   name: system:policer
 rules:
 - apiGroups:
-  - "danm.k8s.io"
+  - "danm.io"
   resources:
   - danmnets
   - clusternetworks
@@ -25,7 +25,7 @@ rules:
   - get
   - list
 - apiGroups:
-  - "danm.k8s.io"
+  - "danm.io"
   resources:
   - danmnetworkpolicies
   verbs:
@@ -66,11 +66,11 @@ metadata:
 spec:
   selector:
     matchLabels:
-      danm.k8s.io: policer
+      danm.io: policer
   template:
     metadata:
       labels:
-        danm.k8s.io: policer
+        danm.io: policer
     spec:
       serviceAccountName: policer
       hostNetwork: true

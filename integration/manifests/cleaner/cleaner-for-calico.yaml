@@ -27,7 +27,7 @@ rules:
   - update
   - get
 - apiGroups:
-  - danm.k8s.io
+  - danm.io
   resources:
   - danmnets
   - danmeps
